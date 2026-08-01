@@ -51,8 +51,17 @@ export const quotationHeaderSchema = z.object({
   vehicleNo: z.string(),
 });
 
+export const QUOTATION_STATUSES = [
+  "DRAFT",
+  "PENDING_APPROVAL",
+  "APPROVED",
+  "REJECTED",
+  "COMPLETED",
+  "CANCELLED",
+] as const;
+
 export const quotationDraftSchema = z.object({
-  status: z.enum(["draft", "finalized"]),
+  status: z.enum(QUOTATION_STATUSES),
   header: quotationHeaderSchema,
   rows: z
     .array(quotationRowSchema)

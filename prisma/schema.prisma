@@ -1,0 +1,479 @@
+// Steel Quotation ERP — data model.
+//
+// Conventions applied to every business table:
+//   * `id`         cuid, opaque to the client
+//   * `createdAt` / `updatedAt`
+//   * `deletedAt`  soft delete — nothing is ever physically removed
+//   * `createdById` / `updatedById`  attribution for the audit trail
+//   * `branchId`   the tenancy boundary that RBAC scoping keys off
+//
+// Branch is the tenant. Every scoped query filters on it, so an admin in one
+// branch can never observe another branch's rows.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Prisma 7 keeps connection URLs out of the schema: migrations read them from
+// prisma.config.ts, and the runtime client is handed a driver adapter.
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Role {
+  SUPER_ADMIN
+  BRANCH_ADMIN
+  MANAGER
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum BranchStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+/// Quotation lifecycle. DRAFT and APPROVED map onto the legacy
+/// draft/finalized pair so existing documents keep their meaning.
+enum QuotationStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  CHEQUE
+  NEFT
+  RTGS
+  UPI
+  IMPS
+  BANK_TRANSFER
+  CARD
+}
+
+enum LedgerStatus {
+  PENDING
+  RECEIVED
+  CLEARED
+  CANCELLED
+  RETURNED
+}
+
+enum LedgerDirection {
+  CREDIT
+  DEBIT
+}
+
+enum AuditAction {
+  LOGIN
+  LOGIN_FAILED
+  LOGOUT
+  CREATE
+  UPDATE
+  DELETE
+  RESTORE
+  APPROVE
+  REJECT
+  CANCEL
+  PASSWORD_RESET
+  PERMISSION_CHANGE
+  EXPORT
+}
+
+enum NotificationType {
+  QUOTATION_CREATED
+  QUOTATION_APPROVAL_REQUIRED
+  QUOTATION_APPROVED
+  QUOTATION_REJECTED
+  PAYMENT_PENDING
+  LEDGER_UPDATED
+  LEDGER_APPROVAL_REQUIRED
+  BRANCH_CREATED
+  USER_CREATED
+  SYSTEM_ALERT
+}
+
+// ---------------------------------------------------------------------------
+// Organisation
+// ---------------------------------------------------------------------------
+
+model Branch {
+  id        String       @id @default(cuid())
+  /// Short stable code used in quotation references, e.g. "MNG".
+  code      String       @unique
+  name      String
+  state     String
+  gstNumber String?
+  address   String?
+  phone     String?
+  email     String?
+  logoUrl   String?
+  status    BranchStatus @default(ACTIVE)
+
+  users          User[]
+  customers      Customer[]
+  quotations     Quotation[]
+  ledgerEntries  CashLedgerEntry[]
+  auditLogs      AuditLog[]
+  notifications  Notification[]
+  /// Per-branch pricing/master-data override; falls back to the global row.
+  settings       SystemSetting?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  createdById String?
+  updatedById String?
+  createdBy   User?     @relation("BranchCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy   User?     @relation("BranchUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([status, deletedAt])
+  @@map("branches")
+}
+
+model User {
+  id           String     @id @default(cuid())
+  name         String
+  username     String     @unique
+  email        String?    @unique
+  phone        String?
+  passwordHash String
+  role         Role
+  status       UserStatus @default(ACTIVE)
+
+  /// Null only for SUPER_ADMIN, who is not bound to a branch.
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id], onDelete: Restrict)
+
+  /// Grants beyond the role's baseline, as permission keys.
+  extraPermissions String[] @default([])
+  /// Revocations from the role's baseline. Never applies to SUPER_ADMIN.
+  deniedPermissions String[] @default([])
+
+  lastLoginAt DateTime?
+  sessions    Session[]
+
+  quotationsCreated  Quotation[]       @relation("QuotationCreatedBy")
+  quotationsUpdated  Quotation[]       @relation("QuotationUpdatedBy")
+  quotationsApproved Quotation[]       @relation("QuotationApprovedBy")
+  quotationsAssigned Quotation[]       @relation("QuotationAssignedTo")
+  ledgerCreated      CashLedgerEntry[] @relation("LedgerCreatedBy")
+  ledgerUpdated      CashLedgerEntry[] @relation("LedgerUpdatedBy")
+  ledgerApproved     CashLedgerEntry[] @relation("LedgerApprovedBy")
+  customersCreated   Customer[]        @relation("CustomerCreatedBy")
+  customersUpdated   Customer[]        @relation("CustomerUpdatedBy")
+  branchesCreated    Branch[]          @relation("BranchCreatedBy")
+  branchesUpdated    Branch[]          @relation("BranchUpdatedBy")
+  usersCreated       User[]            @relation("UserCreatedBy")
+  usersUpdated       User[]            @relation("UserUpdatedBy")
+  auditLogs          AuditLog[]
+  notifications      Notification[]    @relation("NotificationRecipient")
+  settingsUpdated    SystemSetting[]   @relation("SettingUpdatedBy")
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  createdById String?
+  updatedById String?
+  createdBy   User?     @relation("UserCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy   User?     @relation("UserUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([branchId, role, deletedAt])
+  @@index([status])
+  @@map("users")
+}
+
+/// Server-side session records. Holding them in the database (rather than
+/// trusting a self-contained JWT alone) makes revocation immediate: disabling
+/// a user or resetting a password can kill live sessions.
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId, expiresAt])
+  @@map("sessions")
+}
+
+// ---------------------------------------------------------------------------
+// Commercial
+// ---------------------------------------------------------------------------
+
+model Customer {
+  id       String  @id @default(cuid())
+  name     String
+  phone    String?
+  email    String?
+  gstNumber String?
+  address  String?
+  city     String?
+  state    String?
+  pin      String?
+
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+
+  quotations    Quotation[]
+  ledgerEntries CashLedgerEntry[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  createdById String?
+  updatedById String?
+  createdBy   User?     @relation("CustomerCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy   User?     @relation("CustomerUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([branchId, name])
+  @@index([branchId, deletedAt])
+  @@map("customers")
+}
+
+/// A quotation document.
+///
+/// The header fields are a *snapshot*, deliberately denormalised from Customer.
+/// An issued quotation must keep printing the party name, brand and rates it
+/// was issued with, even after the customer record is edited or renamed.
+model Quotation {
+  id        String          @id @default(cuid())
+  reference String          @unique
+  status    QuotationStatus @default(DRAFT)
+
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  /// Owning manager. Drives the "own records only" scope.
+  assignedToId String?
+  assignedTo   User?   @relation("QuotationAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  // --- Header snapshot: printed verbatim on the sheet -----------------------
+  title          String   @default("DISCOUNT/CD")
+  quotationDate  String // yyyy-mm-dd, as printed
+  location       String
+  partyName      String
+  brand          String
+  basicRateLabel String
+  diaDiffLabel   String
+  payment        String
+  vehicleNo      String   @default("")
+  remarks        String   @default("")
+
+  rows QuotationRow[]
+
+  /// Denormalised grand total, in whole rupees. Reporting reads this rather
+  /// than replaying the pricing engine over every row of every quotation.
+  grandTotal    Decimal @default(0) @db.Decimal(16, 2)
+  totalQuantity Decimal @default(0) @db.Decimal(16, 6)
+
+  approvedById String?
+  approvedBy   User?     @relation("QuotationApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt   DateTime?
+  rejectionReason String?
+
+  ledgerEntries CashLedgerEntry[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  createdById String?
+  updatedById String?
+  createdBy   User?     @relation("QuotationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy   User?     @relation("QuotationUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([branchId, status, deletedAt])
+  @@index([branchId, quotationDate])
+  @@index([assignedToId, deletedAt])
+  @@index([customerId])
+  @@map("quotations")
+}
+
+/// One size row. Every rate is stored per row so a saved quotation is immune
+/// to later changes in master settings.
+model QuotationRow {
+  id          String @id @default(cuid())
+  quotationId String
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  /// Print order on the sheet.
+  position Int
+  size     String
+
+  // Decimal, not Float: these feed a financial pipeline that must not drift.
+  quantity        Decimal @db.Decimal(16, 6)
+  basic           Decimal @db.Decimal(16, 6)
+  difference      Decimal @db.Decimal(16, 6)
+  loading         Decimal @db.Decimal(16, 6)
+  discountPercent Decimal @db.Decimal(9, 6)
+  gstPercent      Decimal @db.Decimal(9, 6)
+  /// Null means "derive the green band from the diameter-difference tier".
+  highlight       Boolean?
+
+  @@unique([quotationId, position])
+  @@index([quotationId])
+  @@map("quotation_rows")
+}
+
+// ---------------------------------------------------------------------------
+// Cash ledger
+// ---------------------------------------------------------------------------
+
+model CashLedgerEntry {
+  id        String   @id @default(cuid())
+  /// Human reference, unique per branch, e.g. "MNG/LDG/2026/0007".
+  reference String   @unique
+  entryDate DateTime @db.Date
+
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  quotationId String?
+  quotation   Quotation? @relation(fields: [quotationId], references: [id], onDelete: SetNull)
+
+  /// CREDIT is money received; DEBIT is money paid out or reversed.
+  direction     LedgerDirection @default(CREDIT)
+  amount        Decimal         @db.Decimal(16, 2)
+  paymentMethod PaymentMethod
+  referenceNo   String?
+  particular    String
+  note          String?
+  status        LedgerStatus    @default(PENDING)
+
+  approvedById String?
+  approvedBy   User?     @relation("LedgerApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt   DateTime?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  createdById String?
+  updatedById String?
+  createdBy   User?     @relation("LedgerCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy   User?     @relation("LedgerUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([branchId, entryDate, deletedAt])
+  @@index([branchId, status])
+  @@index([customerId])
+  @@index([createdById])
+  @@map("cash_ledger_entries")
+}
+
+/// Opening balance per branch, so running balances do not require replaying
+/// history from the beginning of time.
+model LedgerOpeningBalance {
+  id        String   @id @default(cuid())
+  branchId  String
+  asOfDate  DateTime @db.Date
+  amount    Decimal  @db.Decimal(16, 2)
+  createdAt DateTime @default(now())
+
+  @@unique([branchId, asOfDate])
+  @@map("ledger_opening_balances")
+}
+
+// ---------------------------------------------------------------------------
+// Cross-cutting
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id       String      @id @default(cuid())
+  action   AuditAction
+  /// Model name, e.g. "Quotation".
+  entity   String
+  entityId String?
+  /// Human summary shown in the audit screen.
+  summary  String
+
+  userId   String?
+  user     User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  oldValue  Json?
+  newValue  Json?
+  ipAddress String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([branchId, createdAt])
+  @@index([userId, createdAt])
+  @@map("audit_logs")
+}
+
+model Notification {
+  id      String           @id @default(cuid())
+  type    NotificationType
+  title   String
+  body    String
+  /// In-app deep link to the subject of the notification.
+  link    String?
+
+  recipientId String
+  recipient   User   @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([recipientId, readAt, createdAt])
+  @@map("notifications")
+}
+
+/// Master settings. `branchId` null is the global row; a branch row overrides
+/// it. Stored as JSON so the pricing engine's settings shape can evolve
+/// without a migration for every new rule.
+model SystemSetting {
+  id       String  @id @default(cuid())
+  branchId String? @unique
+  branch   Branch? @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  data Json
+
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+  updatedById String?
+  updatedBy   User?    @relation("SettingUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@map("system_settings")
+}
+
+/// Per-branch, per-year counters for quotation and ledger references.
+/// A row-level lock on this table serialises number allocation, which is what
+/// stops two concurrent saves from claiming the same reference.
+model Sequence {
+  id       String @id @default(cuid())
+  branchId String
+  /// "QUOTATION" | "LEDGER"
+  kind     String
+  year     Int
+  value    Int    @default(0)
+
+  @@unique([branchId, kind, year])
+  @@map("sequences")
+}

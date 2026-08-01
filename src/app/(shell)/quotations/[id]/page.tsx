@@ -1,50 +1,52 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { Copy, Pencil, Trash2 } from "lucide-react";
-import { quotationRepository, settingsRepository } from "@/lib/repository";
+import { Pencil } from "lucide-react";
+import { requireAnyPermission } from "@/modules/auth/guard";
+import { PERMISSIONS, hasPermission } from "@/modules/permissions/permissions";
+import { getQuotation } from "@/modules/quotations/quotation-service";
+import { getSettings } from "@/modules/settings/settings-service";
 import { calculateQuotation } from "@/lib/quotation-engine";
-import {
-  deleteQuotationAction,
-  duplicateQuotationAction,
-} from "@/lib/actions/quotations";
+import { EDITABLE_STATUSES } from "@/types/quotation";
 import { formatTimestamp } from "@/lib/format/number";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 import { PageHeading } from "@/components/layout/PageHeading";
 import { QuotationSheet } from "@/components/quotation/QuotationSheet";
 import { QuotationDocumentActions } from "@/components/quotation/QuotationDocumentActions";
+import { QuotationWorkflowActions } from "@/components/quotation/QuotationWorkflowActions";
 
 export const dynamic = "force-dynamic";
+
+const VIEW_PERMISSIONS = [
+  PERMISSIONS.QUOTATION_VIEW_ALL,
+  PERMISSIONS.QUOTATION_VIEW_BRANCH,
+  PERMISSIONS.QUOTATION_VIEW_OWN,
+] as const;
 
 interface PageProps {
   readonly params: Promise<{ id: string }>;
 }
 
-export async function generateMetadata({
-  params,
-}: PageProps): Promise<Metadata> {
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
-  const quotation = await quotationRepository.findById(id);
-  return {
-    title: quotation
-      ? `${quotation.reference} · ${quotation.header.partyName}`
-      : "Quotation",
-  };
+  return { title: `Quotation ${id.slice(0, 6)}` };
 }
 
 export default async function QuotationPreviewPage({ params }: PageProps) {
   const { id } = await params;
-  const [quotation, settings] = await Promise.all([
-    quotationRepository.findById(id),
-    settingsRepository.get(),
-  ]);
+  const user = await requireAnyPermission(VIEW_PERMISSIONS);
 
+  const quotation = await getQuotation(user, id);
   if (!quotation) notFound();
 
+  const settings = await getSettings(quotation.ownership?.branchId);
   const calculated = calculateQuotation(quotation, settings);
-  const isFinalized = quotation.status === "finalized";
+
+  const editable = EDITABLE_STATUSES.includes(quotation.status);
+  const canEdit =
+    editable && hasPermission(user, PERMISSIONS.QUOTATION_UPDATE_OWN);
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6">
@@ -55,40 +57,36 @@ export default async function QuotationPreviewPage({ params }: PageProps) {
         backLabel="All quotations"
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant={isFinalized ? "default" : "secondary"}>
-              {isFinalized ? "Finalized" : "Draft"}
-            </Badge>
-
-            {!isFinalized && (
+            <StatusBadge status={quotation.status} />
+            {canEdit && (
               <Button
                 variant="outline"
-                render={<Link href={`/quotations/${quotation.id}/edit`} />}
+                render={<Link href={`/quotations/${id}/edit`} />}
               >
                 <Pencil />
                 Edit
               </Button>
             )}
-
-            <form action={duplicateQuotationAction.bind(null, quotation.id)}>
-              <Button type="submit" variant="outline">
-                <Copy />
-                Duplicate
-              </Button>
-            </form>
-
             <QuotationDocumentActions
               quotation={calculated}
               settings={settings}
-              printHref={`/quotations/${quotation.id}/print`}
+              printHref={`/quotations/${id}/print`}
             />
           </div>
         }
       />
 
-      {isFinalized && (
+      {quotation.status === "REJECTED" && quotation.ownership?.rejectionReason && (
+        <p className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">
+          <span className="font-semibold">Rejected:</span>{" "}
+          {quotation.ownership.rejectionReason}
+        </p>
+      )}
+
+      {!editable && (
         <p className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          This quotation is finalized and immutable. Duplicate it to make
-          changes.
+          This quotation is {quotation.status.replace(/_/g, " ").toLowerCase()}{" "}
+          and can no longer be edited. Duplicate it to make changes.
         </p>
       )}
 
@@ -103,38 +101,53 @@ export default async function QuotationPreviewPage({ params }: PageProps) {
       <Card>
         <CardContent className="flex flex-wrap items-center justify-between gap-6 py-5 text-sm">
           <dl className="flex flex-wrap gap-x-10 gap-y-3">
-            <div>
-              <dt className="text-xs uppercase tracking-wide text-muted-foreground">
-                Created by
-              </dt>
-              <dd className="font-medium">{quotation.createdBy}</dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase tracking-wide text-muted-foreground">
-                Created
-              </dt>
-              <dd className="font-medium">
-                {formatTimestamp(quotation.createdAt)}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase tracking-wide text-muted-foreground">
-                Last updated
-              </dt>
-              <dd className="font-medium">
-                {formatTimestamp(quotation.updatedAt)}
-              </dd>
-            </div>
+            <Fact label="Branch" value={quotation.ownership?.branchName ?? "—"} />
+            <Fact
+              label="Assigned to"
+              value={quotation.ownership?.assignedToName ?? "Unassigned"}
+            />
+            <Fact label="Created by" value={quotation.createdBy} />
+            <Fact label="Created" value={formatTimestamp(quotation.createdAt)} />
+            <Fact label="Updated" value={formatTimestamp(quotation.updatedAt)} />
+            {quotation.ownership?.approvedByName && (
+              <Fact
+                label="Approved by"
+                value={`${quotation.ownership.approvedByName}${
+                  quotation.ownership.approvedAt
+                    ? ` · ${formatTimestamp(quotation.ownership.approvedAt)}`
+                    : ""
+                }`}
+              />
+            )}
           </dl>
 
-          <form action={deleteQuotationAction.bind(null, quotation.id)}>
-            <Button type="submit" variant="ghost" className="text-destructive">
-              <Trash2 />
-              Delete
-            </Button>
-          </form>
+          <QuotationWorkflowActions
+            id={id}
+            status={quotation.status}
+            canApprove={hasPermission(user, PERMISSIONS.QUOTATION_APPROVE)}
+            canDelete={hasPermission(user, PERMISSIONS.QUOTATION_DELETE)}
+            canCreate={hasPermission(user, PERMISSIONS.QUOTATION_CREATE)}
+            canEdit={hasPermission(user, PERMISSIONS.QUOTATION_UPDATE_OWN)}
+          />
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function Fact({
+  label,
+  value,
+}: {
+  readonly label: string;
+  readonly value: string;
+}) {
+  return (
+    <div>
+      <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+        {label}
+      </dt>
+      <dd className="font-medium">{value}</dd>
     </div>
   );
 }

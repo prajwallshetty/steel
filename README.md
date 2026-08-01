@@ -1,27 +1,143 @@
-# Steel Quotation System — Discount / CD
+# Steel Quotation ERP — Discount / CD
 
-A production-ready quotation system for steel trading. It reproduces the
-existing Discount/CD workbook cell-for-cell, prices every row through a
-configurable engine, and emits a true vector A4-landscape PDF.
+A role-based, multi-branch ERP for steel trading, built around the existing
+Discount/CD quotation. The quotation document itself is **unchanged**: the same
+pricing engine, the same cell-for-cell facsimile of the workbook, the same
+vector A4-landscape PDF. Everything else — branches, users, customers, the cash
+ledger, approvals, reports and the audit trail — is built around it.
 
 ```bash
 npm install
-npm run dev        # http://localhost:3000
+cp .env.example .env       # then set DB_URL and AUTH_SECRET
+npm run db:deploy          # apply migrations
+npm run db:seed            # organisation + reference quotation
+npm run dev                # http://localhost:3000
 ```
 
-On first run the store seeds itself with the reference quotation
-(`QT-2026-0001`, SADGURU TRADERS) so the output can be compared against the
-original workbook immediately.
+The seed builds the organisation from the brief and prints its credentials:
+
+| Username | Role | Scope |
+| --- | --- | --- |
+| `superadmin` | Super Admin | Everything |
+| `mangalore.admin` | Branch Admin | Mangalore |
+| `mangalore.manager1` / `…2` | Manager | Own records, Mangalore |
+| `maharashtra.admin` | Branch Admin | Maharashtra |
+| `maharashtra.manager1` / `…2` | Manager | Own records, Maharashtra |
+
+Password for all of them is `ChangeMe123` (override with `SEED_PASSWORD`).
+**Rotate these before the system carries real data.**
 
 | Command | What it does |
 | --- | --- |
 | `npm run dev` | Development server |
 | `npm run build` / `npm start` | Production build and serve |
-| `npm test` | Engine + PDF test suite (31 tests) |
+| `npm test` | Engine, PDF and RBAC suite (50 tests) |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint |
+| `npm run db:migrate` | Create and apply a migration |
+| `npm run db:deploy` | Apply migrations (production) |
+| `npm run db:seed` | Seed the organisation (idempotent) |
+| `npm run db:studio` | Browse the database |
 
 ---
+
+## Access control
+
+Three roles, enforced **on the server only**. Nothing anywhere reads a role from
+the client: the session cookie carries a session id, the user record is loaded
+from the database on every request, and every page and action passes through
+`modules/auth/guard.ts`.
+
+| | Super Admin | Branch Admin | Manager |
+| --- | --- | --- | --- |
+| Scope | All branches | Own branch | Own records |
+| Branches | Create / edit / archive | View + edit own | — |
+| Users | All, any role | Own branch, managers only | — |
+| Quotations | All, approve, delete | Branch, approve, delete | Own, create/edit |
+| Cash ledger | All, approve | Branch, approve | Own, create |
+| Reports | All | Branch | Own |
+| Master settings | ✓ | — | — |
+| Audit log | ✓ | — | — |
+
+Permissions answer *"may this user do X?"*; **scope** answers *"over which
+rows?"* — and scope is the half that actually enforces tenancy
+(`modules/permissions/scope.ts`). Two decisions there carry most of the weight:
+
+- **The "no access" scope returns an impossible filter, not `{}`.** An empty
+  `where` in Prisma matches *every* row, so a missed case would leak the whole
+  table rather than nothing. There is a test for exactly this.
+- **`resolveWriteBranch` ignores any `branchId` in the request** for non-super
+  users and takes it from the session instead. That is what stops a manager
+  re-pointing a create at another branch by editing the form post.
+
+A Super Admin short-circuits every check, including their own denial list — the
+brief says the role "cannot be restricted", and honouring a mis-set denial there
+could lock the organisation out with no way back in.
+
+### Verified end to end
+
+Signed in as each role in a real browser against the seeded data:
+
+```
+SUPER ADMIN nav : Dashboard, Quotations, Customers, Cash ledger, Reports,
+                  Branches, Users, Master settings, Audit log
+MNG MANAGER1    : sees own quotation                        VISIBLE
+MNG MANAGER2    : same branch, not the owner   0 rows       404 BLOCKED
+MAH ADMIN       : other branch                 0 rows       404 BLOCKED
+                  …its /print route                         404 BLOCKED
+                  /admin/audit, /admin/settings             FORBIDDEN
+MNG MANAGER1    : /admin/users                              FORBIDDEN
+```
+
+Out-of-scope ids return 404 rather than 403 — a 403 would confirm that another
+branch's reference exists.
+
+---
+
+## Organisation model
+
+```
+Branch (the tenant)
+  └── Users            SUPER_ADMIN | BRANCH_ADMIN | MANAGER
+  └── Customers
+  └── Quotations ── QuotationRows
+  └── Cash ledger entries
+  └── Audit log, Notifications, Settings
+```
+
+Branches are data, not code — add Delhi, Goa or Hyderabad in the UI and every
+scope, report and reference series adapts. Every table carries `createdAt`,
+`updatedAt`, `deletedAt`, `createdById`, `updatedById`; **nothing is ever
+physically deleted.**
+
+### Quotation workflow
+
+```
+DRAFT ──► PENDING_APPROVAL ──► APPROVED ──► COMPLETED
+  │              │   └────────► REJECTED ──┐
+  └──────────────┴──────────────────────────┴──► CANCELLED
+```
+
+The legal moves live in one transition table in `quotation-service.ts`, and the
+UI only offers moves that table permits — so the buttons can never suggest
+something the server will refuse. Approved quotations are immutable: they are a
+record of a commitment, and the edit route redirects rather than rendering a
+form that cannot save.
+
+### Cash ledger
+
+Money is stored as `Decimal` and summed in the database, never accumulated
+through JavaScript floats. Only `RECEIVED` and `CLEARED` entries move the
+balance — `PENDING` is an expectation and `CANCELLED`/`RETURNED` never landed.
+A date-filtered view still shows a truthful opening balance, computed from every
+settled entry before the window. Cleared entries cannot be deleted; the
+correction is a reversing entry, so the trail survives.
+
+Entries created by someone without approval rights always start `PENDING`,
+whatever the form claims.
+
+---
+
 
 ## The pricing pipeline
 
@@ -63,36 +179,49 @@ A regression test asserts both figures, so this cannot silently regress.
 
 ## Architecture
 
+Feature modules own their own schema, service and actions. Nothing reaches
+across into another module's internals.
+
 ```
+prisma/schema.prisma          Branch · User · Customer · Quotation · Ledger
+                              · AuditLog · Notification · Session · Sequence
 src/
-  types/                      Domain model. Readonly, framework-free.
+  modules/                    ── feature-sliced ──────────────────────────
+    auth/         password hashing, DB-backed sessions, guards
+    permissions/  the catalogue, the role matrix, scope resolution
+    branches/  users/  customers/  quotations/  ledger/
+    dashboard/  reports/  audit/  notifications/  settings/
+    shared/       ActionResult, reference-number allocation
   lib/
-    quotation-engine/         Pure functions. No React, no I/O.
-      calculateRow.ts           one material row
-      calculateGST.ts           tax on a taxable value
-      calculateDiscount.ts      cash discount
-      calculateTotals.ts        aggregation
-      calculateQuotation.ts     whole sheet + highlight tiers
-      money.ts                  financial rounding, input coercion
-    template/sheet-template.ts  Geometry + colours, authored in millimetres
-    pdf/                        Vector PDF (@react-pdf/renderer)
-    repository/                 Persistence behind an interface
-    validation/                 Zod schemas, shared client + server
-    format/                     Indian number + date formatting
-    actions/                    Server actions
+    quotation-engine/         Pure functions. No React, no I/O. UNCHANGED.
+      calculateRow · calculateGST · calculateDiscount
+      calculateTotals · calculateQuotation · money
+    template/sheet-template.ts  Geometry + colours, in millimetres. UNCHANGED.
+    pdf/                        Vector PDF (@react-pdf/renderer). UNCHANGED.
+    database/prisma.ts          Pooled client, cached across dev reloads
+    validation/  format/
   components/
-    quotation/QuotationSheet.tsx   the facsimile (no hooks, no arithmetic)
+    quotation/QuotationSheet.tsx   the facsimile. UNCHANGED.
     quotation/QuotationEditor.tsx  the form
-  styles/sheet.css               screen + print, one stylesheet
+    shared/  layout/  admin/  …
+  styles/sheet.css               screen + print, one stylesheet. UNCHANGED.
+  middleware.ts                  fast redirect for unauthenticated navigation
   app/
-    (shell)/                     app chrome
-    (print)/quotations/[id]/print  bare print route
+    login/  forbidden/
+    (shell)/                     authenticated chrome
+    (print)/quotations/[id]/print  bare print route (still authorised)
+    api/reports/export             CSV download
 ```
 
-**The engine never touches the UI, and the UI never does arithmetic.** The
-sheet component receives values that are already resolved; the editor calls the
-same engine the server does. Swapping in a different pricing model means adding
-a module under `quotation-engine/` — no component changes.
+Each module is three files: a Zod **schema**, a **service** that owns the
+business rules and the database, and thin **actions** that authorise, re-parse
+the payload and delegate. Every server action re-validates with the same schema
+the form uses — an action is a public HTTP endpoint, so client-side validation
+is a convenience and never the enforcement point.
+
+**The engine never touches the UI, and the UI never does arithmetic.** The sheet
+component receives values that are already resolved; the editor calls the same
+engine the server does.
 
 ### One source of geometry
 
@@ -106,18 +235,33 @@ width of A4 landscape at 10 mm margins.
 
 ### Persistence
 
-`QuotationRepository` and `SettingsRepository` are interfaces. The shipped
-implementation is a JSON file store (`data/`, gitignored, seeded on first read)
-with serialised writes and atomic temp-file renames. Replacing it with Prisma
-means writing one class and changing one line in `lib/repository/index.ts` —
-no route, action or component imports a concrete store.
+PostgreSQL via Prisma 7 with the `pg` driver adapter. The runtime client uses
+Neon's **pooled** endpoint; migrations use the **direct** one, because they take
+advisory locks that pgBouncer does not support. Both URLs live in `.env`, and
+`prisma.config.ts` wires the migration one up.
 
-### Immutability
+The quotation service maps database rows to the same `Quotation` domain type the
+engine and the sheet always consumed — which is exactly why moving from the old
+JSON file store to Postgres did not require a single change to the engine, the
+sheet or the PDF renderer. `quotation-mapper.ts` is that seam.
+
+Reference numbers (`MNG/QT/2026/0001`) are allocated with a single atomic
+`INSERT … ON CONFLICT DO UPDATE … RETURNING`. Read-then-write in application
+code would let two concurrent saves mint the same reference; letting Postgres do
+the increment removes the race without a lock or a retry loop.
+
+### Immutability and the audit trail
 
 Settings are defaults for **future** quotations only. Every stored quotation
 carries its own rates on every row and is never recalculated against new
-settings — an issued price must not change retroactively. Finalized quotations
-refuse edits at the repository, not just in the UI.
+settings — an issued price must not change retroactively. The header is a
+*snapshot* too: renaming a customer never rewrites a document already issued to
+them. Approved quotations refuse edits in the service, not just in the UI.
+
+Every mutation writes an audit row: who, what, when, from which IP, and a diff
+of the fields that actually changed. The log is append-only — there is no update
+or delete path for it anywhere in the codebase. Audit writes are best-effort so
+a logging failure can never roll back the business operation the user asked for.
 
 ---
 
@@ -188,12 +332,31 @@ The `NOTE:` footer uses the brief's corrected wording (the workbook reads
 
 ## Notes
 
-- **Next.js 15** as specified. The scaffold produced 16; it was pinned back.
-- **Auth** is a single seam — `lib/auth/current-user.ts`. Replace that one
-  function with a session lookup and every audit field records real users.
+- **Next.js 15** as specified, with Prisma 7 + PostgreSQL (Neon).
+- **Auth** is a signed session cookie carrying a session *id*, not claims. The
+  user is re-read from the database each request, so disabling an account,
+  changing a role or resetting a password takes effect on the very next request
+  rather than whenever a stale token happens to expire. Disable, role change,
+  branch move and password reset all revoke live sessions.
+- **Login failures** report one generic message whatever the cause, and hash a
+  placeholder for unknown usernames so timing does not turn the form into a
+  username oracle.
+- **CSV export** prefixes any value starting with `=`, `+`, `-` or `@` with an
+  apostrophe, so a customer named `=cmd|…` cannot become a live formula when the
+  file is opened in Excel.
+- **Escalation is blocked both ways**: nobody may create or edit a user at or
+  above their own role, and the last active Super Admin cannot be demoted,
+  disabled or deleted.
 - Sizes, diameter differences, GST, discount, loading, brands, locations,
-  payment terms and the footer note are all editable in **Admin → Settings**.
-- The green highlight is *derived*, not hardcoded: sizes priced above the base
-  diameter-difference tier get the band. That reproduces the reference sheet
-  (8MM and 32MM at 6500 against a 5500 base) and keeps working when the
-  difference map is edited. An explicit override list is also supported.
+  payment terms and the footer note remain editable in **Master settings**.
+- The green highlight is still *derived* from the diameter-difference tier
+  rather than hardcoded, so it keeps working when the difference map is edited.
+
+## Still to build
+
+Honest about scope: the brief lists these under future scalability and they are
+**not** implemented — inventory, purchase/sales orders, invoices, stock
+transfers, warehouse management and CRM. The schema and module layout leave room
+for them (branch-scoped tables, soft deletes, the audit trail and the service
+layer all generalise), but no code exists for them yet. Report export is CSV
+only; the brief also mentions PDF and Excel export for reports.

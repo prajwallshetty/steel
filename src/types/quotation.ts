@@ -5,7 +5,32 @@
  * presentation boundary. Nothing in this file knows about React or PDF.
  */
 
-export type QuotationStatus = "draft" | "finalized";
+/**
+ * Quotation lifecycle, mirroring the `QuotationStatus` enum in the database.
+ *
+ * The engine and the sheet never branch on this — it is carried through
+ * untouched — so the workflow can grow states without any risk to the printed
+ * document or its arithmetic.
+ */
+export type QuotationStatus =
+  | "DRAFT"
+  | "PENDING_APPROVAL"
+  | "APPROVED"
+  | "REJECTED"
+  | "COMPLETED"
+  | "CANCELLED";
+
+/** States in which a quotation is still editable by its owner. */
+export const EDITABLE_STATUSES: readonly QuotationStatus[] = [
+  "DRAFT",
+  "REJECTED",
+];
+
+/** States that represent a committed, printable document. */
+export const COMMITTED_STATUSES: readonly QuotationStatus[] = [
+  "APPROVED",
+  "COMPLETED",
+];
 
 /** A material size key, e.g. "8MM". Free-form so admins can add sizes. */
 export type SizeCode = string;
@@ -84,6 +109,20 @@ export interface QuotationTotals {
   readonly grandTotal: number;
 }
 
+/** Organisational context attached to a stored quotation. */
+export interface QuotationOwnership {
+  readonly branchId: string;
+  readonly branchName: string;
+  readonly branchCode: string;
+  readonly customerId: string | null;
+  /** Owning manager — drives the "own records only" scope. */
+  readonly assignedToId: string | null;
+  readonly assignedToName: string | null;
+  readonly approvedByName: string | null;
+  readonly approvedAt: string | null;
+  readonly rejectionReason: string | null;
+}
+
 export interface Quotation {
   readonly id: string;
   readonly reference: string;
@@ -94,6 +133,8 @@ export interface Quotation {
   readonly createdBy: string;
   readonly createdAt: string;
   readonly updatedAt: string;
+  /** Absent on an unsaved draft being composed in the editor. */
+  readonly ownership?: QuotationOwnership;
 }
 
 /** A quotation with every derived figure resolved. */

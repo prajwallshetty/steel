@@ -5,11 +5,11 @@ import "@/styles/sheet.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Steel Quotation System",
-    template: "%s · Steel Quotation System",
+    default: "Steel Quotation ERP",
+    template: "%s · Steel Quotation ERP",
   },
   description:
-    "Discount/CD quotation system for steel trading — Excel-faithful sheets, live pricing and vector PDF output.",
+    "Role-based, multi-branch ERP for steel trading — Excel-faithful quotations, cash ledger, approvals and reporting.",
 };
 
 export default function RootLayout({

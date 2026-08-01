@@ -4,7 +4,7 @@ import { calculateRow } from "./calculateRow";
 import { calculateTotals } from "./calculateTotals";
 import { roundFinancial, toFiniteNumber } from "./money";
 import { DEFAULT_SETTINGS } from "@/lib/settings/defaults";
-import { REFERENCE_QUOTATION } from "@/lib/repository/seed-quotation";
+import { REFERENCE_QUOTATION } from "@/lib/fixtures/reference-quotation";
 import { formatMoney, formatQuantity } from "@/lib/format/number";
 import type { AppSettings } from "@/types/settings";
 

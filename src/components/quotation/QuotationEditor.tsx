@@ -2,17 +2,15 @@
 
 import { useCallback, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { useForm, useWatch, type Control } from "react-hook-form";
+import { Controller, useForm, useWatch, type Control } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CheckCircle2, Loader2, Save } from "lucide-react";
+import { CheckCircle2, Loader2, Save, SendHorizonal } from "lucide-react";
 import { toast } from "sonner";
+import { z } from "zod";
 import type { QuotationStatus } from "@/types/quotation";
-import type { SaveResult } from "@/types/actions";
+import type { ActionResult } from "@/modules/shared/action-result";
 import type { AppSettings } from "@/types/settings";
-import {
-  quotationDraftSchema,
-  type QuotationDraftInput,
-} from "@/lib/validation/quotation-schema";
+import { quotationDraftSchema } from "@/lib/validation/quotation-schema";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -23,6 +21,13 @@ import {
 } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { formatMoney, formatQuantity } from "@/lib/format/number";
 import { QuotationHeaderFields } from "./QuotationHeaderFields";
 import { QuotationRowsGrid } from "./QuotationRowsGrid";
@@ -30,20 +35,49 @@ import { SheetViewport } from "./SheetViewport";
 import { QuotationDocumentActions } from "./QuotationDocumentActions";
 import { useLiveQuotation, type QuotationMetadata } from "./useLiveQuotation";
 
+/**
+ * Organisational context carried alongside the sheet itself. Kept in the same
+ * form so a single submit persists the document and its ownership together.
+ */
+const editorSchema = quotationDraftSchema.extend({
+  branchId: z.string().optional().nullable(),
+  customerId: z.string().optional().nullable(),
+  assignedToId: z.string().optional().nullable(),
+});
+
+export type QuotationEditorValues = z.infer<typeof editorSchema>;
+
+export interface OptionItem {
+  readonly id: string;
+  readonly name: string;
+}
+
 interface QuotationEditorProps {
-  readonly initialDraft: QuotationDraftInput;
+  readonly initialDraft: QuotationEditorValues;
   readonly settings: AppSettings;
   readonly meta: QuotationMetadata;
   readonly mode: "create" | "edit";
-  readonly onSave: (draft: QuotationDraftInput) => Promise<SaveResult>;
+  readonly onSave: (
+    draft: QuotationEditorValues,
+  ) => Promise<ActionResult<{ id: string }>>;
+  readonly customers: readonly OptionItem[];
+  readonly branches: readonly OptionItem[];
+  readonly assignees: readonly OptionItem[];
+  readonly canSelectBranch: boolean;
+  readonly canAssign: boolean;
+  /** Whether this user's saves go straight to approved, or need review. */
+  readonly canApprove: boolean;
 }
+
+const NONE = "__none__";
 
 /**
  * The quotation editor.
  *
- * Owns the form; deliberately does not subscribe to its values. The grid, the
- * totals strip and the live sheet each watch the slice they need, so typing in
- * a cell never re-renders the whole page.
+ * Owns the form but deliberately does not subscribe to its values: the grid,
+ * the totals strip and the live sheet each watch only the slice they need, so
+ * typing in a cell re-renders one input and the figures beside it rather than
+ * the whole page.
  */
 export function QuotationEditor({
   initialDraft,
@@ -51,6 +85,12 @@ export function QuotationEditor({
   meta,
   mode,
   onSave,
+  customers,
+  branches,
+  assignees,
+  canSelectBranch,
+  canAssign,
+  canApprove,
 }: QuotationEditorProps) {
   const router = useRouter();
   const [isSaving, startSaving] = useTransition();
@@ -64,8 +104,8 @@ export function QuotationEditor({
     setValue,
     getValues,
     formState: { errors, isDirty },
-  } = useForm<QuotationDraftInput>({
-    resolver: zodResolver(quotationDraftSchema),
+  } = useForm<QuotationEditorValues>({
+    resolver: zodResolver(editorSchema),
     defaultValues: initialDraft,
     mode: "onBlur",
   });
@@ -78,13 +118,13 @@ export function QuotationEditor({
       return handleSubmit(
         (values) => {
           if (
-            status === "finalized" &&
+            status !== "DRAFT" &&
             !values.rows.some((row) => row.quantity > 0)
           ) {
             setPendingStatus(null);
-            toast.error("Nothing to finalize", {
+            toast.error("Nothing to submit", {
               description:
-                "Enter a quantity on at least one size before finalizing.",
+                "Enter a quantity on at least one size before submitting.",
             });
             return;
           }
@@ -99,13 +139,15 @@ export function QuotationEditor({
             }
 
             toast.success(
-              status === "finalized"
-                ? "Quotation finalized"
-                : mode === "create"
+              status === "DRAFT"
+                ? mode === "create"
                   ? "Draft created"
-                  : "Draft saved",
+                  : "Draft saved"
+                : canApprove
+                  ? "Quotation submitted"
+                  : "Sent for approval",
             );
-            router.push(`/quotations/${result.id}`);
+            router.push(`/quotations/${result.data.id}`);
             router.refresh();
           });
         },
@@ -115,17 +157,60 @@ export function QuotationEditor({
         },
       )();
     },
-    [handleSubmit, mode, onSave, router, setValue],
+    [handleSubmit, mode, onSave, router, setValue, canApprove],
   );
 
   return (
     <form
       onSubmit={(event) => {
         event.preventDefault();
-        void submit("draft");
+        void submit("DRAFT");
       }}
       className="space-y-6"
     >
+      <Card>
+        <CardHeader>
+          <CardTitle>Assignment</CardTitle>
+          <CardDescription>
+            Who this quotation belongs to. The party name printed on the sheet
+            is a snapshot and will not change if the customer record is later
+            renamed.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          {canSelectBranch && (
+            <PickerField
+              control={control}
+              name="branchId"
+              label="Branch"
+              placeholder="Select a branch"
+              options={branches}
+              required
+              error={errors.branchId?.message}
+            />
+          )}
+          <PickerField
+            control={control}
+            name="customerId"
+            label="Customer"
+            placeholder="Not linked"
+            options={customers}
+            allowNone
+            hint="Links the quotation to a customer record for reporting."
+          />
+          {canAssign && (
+            <PickerField
+              control={control}
+              name="assignedToId"
+              label="Assigned manager"
+              placeholder="Unassigned"
+              options={assignees}
+              allowNone
+            />
+          )}
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Quotation details</CardTitle>
@@ -166,7 +251,7 @@ export function QuotationEditor({
             Printed beneath the grid, prefixed with “NOTE:”.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-1.5">
+        <CardContent>
           <Label htmlFor="remarks" className="sr-only">
             Footer note
           </Label>
@@ -193,9 +278,9 @@ export function QuotationEditor({
           type="button"
           variant="outline"
           disabled={isSaving}
-          onClick={() => void submit("draft")}
+          onClick={() => void submit("DRAFT")}
         >
-          {isSaving && pendingStatus === "draft" ? (
+          {isSaving && pendingStatus === "DRAFT" ? (
             <Loader2 className="animate-spin" />
           ) : (
             <Save />
@@ -205,39 +290,112 @@ export function QuotationEditor({
         <Button
           type="button"
           disabled={isSaving}
-          onClick={() => void submit("finalized")}
+          onClick={() => void submit("PENDING_APPROVAL")}
         >
-          {isSaving && pendingStatus === "finalized" ? (
+          {isSaving && pendingStatus === "PENDING_APPROVAL" ? (
             <Loader2 className="animate-spin" />
-          ) : (
+          ) : canApprove ? (
             <CheckCircle2 />
+          ) : (
+            <SendHorizonal />
           )}
-          Finalize
+          {canApprove ? "Submit" : "Send for approval"}
         </Button>
       </div>
     </form>
   );
 }
 
+/* ------------------------------ sub-parts ------------------------------- */
+
+function PickerField({
+  control,
+  name,
+  label,
+  placeholder,
+  options,
+  allowNone = false,
+  required = false,
+  hint,
+  error,
+}: {
+  readonly control: Control<QuotationEditorValues>;
+  readonly name: "branchId" | "customerId" | "assignedToId";
+  readonly label: string;
+  readonly placeholder: string;
+  readonly options: readonly OptionItem[];
+  readonly allowNone?: boolean;
+  readonly required?: boolean;
+  readonly hint?: string;
+  readonly error?: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+        {required && <span className="ml-0.5 text-destructive">*</span>}
+      </Label>
+      <Controller
+        control={control}
+        name={name}
+        render={({ field }) => (
+          <Select
+            value={field.value || (allowNone ? NONE : "")}
+            onValueChange={(value) =>
+              field.onChange(value === NONE ? null : value)
+            }
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder={placeholder} />
+            </SelectTrigger>
+            <SelectContent>
+              {allowNone && <SelectItem value={NONE}>{placeholder}</SelectItem>}
+              {options.map((option) => (
+                <SelectItem key={option.id} value={option.id}>
+                  {option.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      />
+      {error ? (
+        <p className="text-xs text-destructive">{error}</p>
+      ) : hint ? (
+        <p className="text-xs text-muted-foreground">{hint}</p>
+      ) : null}
+    </div>
+  );
+}
+
 interface WatcherProps {
-  readonly control: Control<QuotationDraftInput>;
+  readonly control: Control<QuotationEditorValues>;
   readonly settings: AppSettings;
   readonly meta: QuotationMetadata;
 }
 
-/** Running totals under the grid. */
 function TotalsStrip({ control, settings, meta }: WatcherProps) {
-  const values = useWatch({ control }) as QuotationDraftInput;
+  const values = useWatch({ control }) as QuotationEditorValues;
   const quotation = useLiveQuotation(values, settings, meta);
   const { totals } = quotation;
   const grouping = settings.display.numberGrouping;
 
   const cells = useMemo(
     () => [
-      { label: "Total quantity", value: `${formatQuantity(totals.totalQuantity)} MT` },
+      {
+        label: "Total quantity",
+        value: `${formatQuantity(totals.totalQuantity)} MT`,
+      },
       { label: "GST", value: formatMoney(totals.totalGst, grouping) },
-      { label: "Cash discount", value: formatMoney(totals.totalDiscount, grouping) },
-      { label: "Grand total", value: formatMoney(totals.grandTotal, grouping), emphasis: true },
+      {
+        label: "Cash discount",
+        value: formatMoney(totals.totalDiscount, grouping),
+      },
+      {
+        label: "Grand total",
+        value: formatMoney(totals.grandTotal, grouping),
+        emphasis: true,
+      },
     ],
     [totals, grouping],
   );
@@ -264,9 +422,8 @@ function TotalsStrip({ control, settings, meta }: WatcherProps) {
   );
 }
 
-/** The facsimile, kept in sync with the form on every keystroke. */
 function LivePreview({ control, settings, meta }: WatcherProps) {
-  const values = useWatch({ control }) as QuotationDraftInput;
+  const values = useWatch({ control }) as QuotationEditorValues;
   const quotation = useLiveQuotation(values, settings, meta);
 
   return (

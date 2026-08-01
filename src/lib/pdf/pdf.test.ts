@@ -4,7 +4,7 @@ import { renderToBuffer, type DocumentProps } from "@react-pdf/renderer";
 import { QuotationPdfDocument } from "./QuotationPdfDocument";
 import { calculateQuotation } from "@/lib/quotation-engine";
 import { DEFAULT_SETTINGS } from "@/lib/settings/defaults";
-import { REFERENCE_QUOTATION } from "@/lib/repository/seed-quotation";
+import { REFERENCE_QUOTATION } from "@/lib/fixtures/reference-quotation";
 
 const settings = {
   ...DEFAULT_SETTINGS,

@@ -8,7 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { AppSettings } from "@/types/settings";
-import type { SaveResult } from "@/types/actions";
+import type { ActionResult } from "@/modules/shared/action-result";
 import {
   appSettingsSchema,
   type AppSettingsInput,
@@ -35,7 +35,7 @@ import { toFiniteNumber } from "@/lib/quotation-engine/money";
 
 interface SettingsFormProps {
   readonly settings: AppSettings;
-  readonly onSave: (input: AppSettingsInput) => Promise<SaveResult>;
+  readonly onSave: (input: AppSettingsInput) => Promise<ActionResult<{ id: string }>>;
 }
 
 /**

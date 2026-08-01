@@ -1,92 +1,139 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { FileText, Plus } from "lucide-react";
-import { quotationRepository, settingsRepository } from "@/lib/repository";
-import { calculateQuotation } from "@/lib/quotation-engine";
+import { QuotationStatus } from "@prisma/client";
+import { requireAnyPermission } from "@/modules/auth/guard";
+import { PERMISSIONS, hasPermission } from "@/modules/permissions/permissions";
+import { listQuotations } from "@/modules/quotations/quotation-service";
+import { listSelectableBranches } from "@/modules/branches/branch-service";
+import { getSettings } from "@/modules/settings/settings-service";
 import { formatListDate, formatMoney, formatQuantity } from "@/lib/format/number";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { StatusBadge } from "@/components/shared/StatusBadge";
+import { FilterBar } from "@/components/shared/FilterBar";
+import { PageHeading } from "@/components/layout/PageHeading";
 
 export const metadata: Metadata = { title: "Quotations" };
-
-/** Always read through to the store — quotations change on every save. */
 export const dynamic = "force-dynamic";
 
-export default async function QuotationsPage() {
-  const [quotations, settings] = await Promise.all([
-    quotationRepository.list(),
-    settingsRepository.get(),
+const VIEW_PERMISSIONS = [
+  PERMISSIONS.QUOTATION_VIEW_ALL,
+  PERMISSIONS.QUOTATION_VIEW_BRANCH,
+  PERMISSIONS.QUOTATION_VIEW_OWN,
+] as const;
+
+interface PageProps {
+  readonly searchParams: Promise<Record<string, string | undefined>>;
+}
+
+export default async function QuotationsPage({ searchParams }: PageProps) {
+  const user = await requireAnyPermission(VIEW_PERMISSIONS);
+  const params = await searchParams;
+
+  const canSeeAllBranches = hasPermission(user, PERMISSIONS.QUOTATION_VIEW_ALL);
+
+  const [{ items, total }, settings, branches] = await Promise.all([
+    listQuotations(user, {
+      search: params.search,
+      status: params.status as QuotationStatus | undefined,
+      branchId: params.branchId,
+      from: params.from,
+      to: params.to,
+      take: 100,
+    }),
+    getSettings(user.branchId),
+    canSeeAllBranches ? listSelectableBranches(user) : Promise.resolve([]),
   ]);
 
-  const rows = quotations.map((quotation) =>
-    calculateQuotation(quotation, settings),
-  );
   const grouping = settings.display.numberGrouping;
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Quotations</h1>
-          <p className="text-sm text-muted-foreground">
-            {rows.length} {rows.length === 1 ? "quotation" : "quotations"} on
-            record.
-          </p>
-        </div>
-        <Button render={<Link href="/quotations/new" />}>
-          <Plus />
-          New quotation
-        </Button>
-      </div>
-
-      {rows.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
-            <FileText className="size-8 text-muted-foreground" />
-            <div>
-              <p className="font-medium">No quotations yet</p>
-              <p className="text-sm text-muted-foreground">
-                Create one to get started.
-              </p>
-            </div>
+      <PageHeading
+        title="Quotations"
+        description={`${total} ${total === 1 ? "quotation" : "quotations"} in your scope.`}
+        actions={
+          hasPermission(user, PERMISSIONS.QUOTATION_CREATE) ? (
             <Button render={<Link href="/quotations/new" />}>
               <Plus />
               New quotation
             </Button>
+          ) : undefined
+        }
+      />
+
+      <Card>
+        <CardContent className="py-4">
+          <FilterBar
+            fields={[
+              {
+                key: "search",
+                label: "Search",
+                type: "search",
+                placeholder: "Reference, party, brand…",
+              },
+              {
+                key: "status",
+                label: "Status",
+                type: "select",
+                options: Object.values(QuotationStatus).map((status) => ({
+                  value: status,
+                  label: status.replace(/_/g, " ").toLowerCase(),
+                })),
+              },
+              ...(canSeeAllBranches
+                ? [
+                    {
+                      key: "branchId",
+                      label: "Branch",
+                      type: "select" as const,
+                      options: branches.map((branch) => ({
+                        value: branch.id,
+                        label: branch.name,
+                      })),
+                    },
+                  ]
+                : []),
+              { key: "from", label: "From", type: "date" },
+              { key: "to", label: "To", type: "date" },
+            ]}
+          />
+        </CardContent>
+      </Card>
+
+      {items.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
+            <FileText className="size-8 text-muted-foreground" />
+            <div>
+              <p className="font-medium">No quotations found</p>
+              <p className="text-sm text-muted-foreground">
+                Try clearing the filters, or create a new quotation.
+              </p>
+            </div>
           </CardContent>
         </Card>
       ) : (
         <Card className="overflow-hidden py-0">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[820px] text-sm">
+            <table className="w-full min-w-[900px] text-sm">
               <thead>
                 <tr className="border-b bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
-                  <th scope="col" className="px-4 py-3 text-left font-semibold">
-                    Reference
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left font-semibold">
-                    Party
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left font-semibold">
-                    Brand / location
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left font-semibold">
-                    Date
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-right font-semibold">
-                    Qty (MT)
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-right font-semibold">
-                    Grand total
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left font-semibold">
-                    Status
-                  </th>
+                  <th scope="col" className="px-4 py-3 text-left font-semibold">Reference</th>
+                  <th scope="col" className="px-4 py-3 text-left font-semibold">Party</th>
+                  <th scope="col" className="px-4 py-3 text-left font-semibold">Brand / location</th>
+                  {canSeeAllBranches && (
+                    <th scope="col" className="px-4 py-3 text-left font-semibold">Branch</th>
+                  )}
+                  <th scope="col" className="px-4 py-3 text-left font-semibold">Date</th>
+                  <th scope="col" className="px-4 py-3 text-right font-semibold">Qty (MT)</th>
+                  <th scope="col" className="px-4 py-3 text-right font-semibold">Grand total</th>
+                  <th scope="col" className="px-4 py-3 text-left font-semibold">Status</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((quotation) => (
+                {items.map((quotation) => (
                   <tr
                     key={quotation.id}
                     className="border-b transition-colors last:border-b-0 hover:bg-muted/40"
@@ -99,31 +146,26 @@ export default async function QuotationsPage() {
                         {quotation.reference}
                       </Link>
                     </td>
-                    <td className="px-4 py-3">{quotation.header.partyName}</td>
+                    <td className="px-4 py-3">{quotation.partyName}</td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {quotation.header.brand} · {quotation.header.location}
+                      {quotation.brand} · {quotation.location}
                     </td>
+                    {canSeeAllBranches && (
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {quotation.branchName}
+                      </td>
+                    )}
                     <td className="px-4 py-3 text-muted-foreground">
-                      {formatListDate(quotation.header.date)}
+                      {formatListDate(quotation.quotationDate)}
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums">
-                      {formatQuantity(quotation.totals.totalQuantity)}
+                      {formatQuantity(quotation.totalQuantity)}
                     </td>
                     <td className="px-4 py-3 text-right font-semibold tabular-nums">
-                      {formatMoney(quotation.totals.grandTotal, grouping)}
+                      {formatMoney(quotation.grandTotal, grouping)}
                     </td>
                     <td className="px-4 py-3">
-                      <Badge
-                        variant={
-                          quotation.status === "finalized"
-                            ? "default"
-                            : "secondary"
-                        }
-                      >
-                        {quotation.status === "finalized"
-                          ? "Finalized"
-                          : "Draft"}
-                      </Badge>
+                      <StatusBadge status={quotation.status} />
                     </td>
                   </tr>
                 ))}

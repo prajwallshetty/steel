@@ -50,7 +50,7 @@ export function deriveDiaDiffLabel(settings: AppSettings): string {
 /** A blank draft, pre-populated so the sheet is immediately recognisable. */
 export function createEmptyDraft(settings: AppSettings): QuotationDraftInput {
   return {
-    status: "draft",
+    status: "DRAFT",
     header: {
       title: SHEET_TITLE,
       date: new Date().toISOString().slice(0, 10),
@@ -70,7 +70,7 @@ export function createEmptyDraft(settings: AppSettings): QuotationDraftInput {
 /** Copy an existing quotation into a fresh, unsaved draft. */
 export function duplicateAsDraft(source: Quotation): QuotationDraftInput {
   return {
-    status: "draft",
+    status: "DRAFT",
     header: {
       ...source.header,
       date: new Date().toISOString().slice(0, 10),

@@ -1,0 +1,159 @@
+/*
+ * The quotation sheet.
+ *
+ * Authored entirely in millimetres and points so that one stylesheet serves the
+ * screen preview, the print route and the browser's own PDF export without the
+ * geometry shifting between them. Deliberately plain CSS rather than utility
+ * classes: print output must not depend on Tailwind's cascade layers surviving
+ * a page-break context.
+ */
+
+.steel-sheet-frame {
+  /* A4 landscape content box. */
+  width: 277mm;
+  background: #ffffff;
+}
+
+.steel-sheet {
+  width: 277mm;
+  border-collapse: collapse;
+  table-layout: fixed;
+  background: #ffffff;
+  color: #000000;
+  font-family: Calibri, "Segoe UI", Carlito, Arial, Helvetica, sans-serif;
+  font-size: 10pt;
+  font-weight: 400;
+  /* Excel-like crispness: no anti-alias smearing of hairline rules. */
+  -webkit-font-smoothing: antialiased;
+}
+
+.steel-sheet td,
+.steel-sheet th {
+  border: 0.25mm solid #000000;
+  padding: 0 1.4mm;
+  font-size: 10pt;
+  font-weight: 400;
+  line-height: 1.05;
+  vertical-align: middle;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.steel-sheet .cell-left {
+  text-align: left;
+}
+
+.steel-sheet .cell-center {
+  text-align: center;
+}
+
+.steel-sheet .cell-bold {
+  font-weight: 700;
+}
+
+.steel-sheet .cell-title {
+  font-weight: 700;
+  text-align: left;
+}
+
+.steel-sheet .cell-head {
+  font-weight: 700;
+  text-align: center;
+  white-space: normal;
+}
+
+.steel-sheet .cell-danger {
+  color: #ff0000;
+  font-weight: 700;
+}
+
+/* The footer note sits below the ruled grid, unboxed, as in the workbook. */
+.steel-sheet .cell-note {
+  border: none;
+  padding: 1.2mm 0 0;
+  font-size: 8pt;
+  font-style: italic;
+  text-align: left;
+}
+
+/*
+ * Screen-only chrome. The sheet keeps its true physical width; narrow viewports
+ * scroll rather than reflow, because reflowing would stop it being a facsimile.
+ */
+.steel-sheet-scroll {
+  overflow-x: auto;
+  padding: 6mm;
+  background: #f1f5f9;
+}
+
+.steel-sheet-paper {
+  width: 277mm;
+  margin: 0 auto;
+  padding: 10mm;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08), 0 8px 24px rgb(0 0 0 / 0.12);
+  box-sizing: content-box;
+}
+
+/* Root of the dedicated print route. */
+.print-root {
+  min-height: 100vh;
+  background: #ffffff;
+}
+
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
+  html,
+  body {
+    width: 277mm;
+    /*
+     * `height: auto` is load-bearing. Any viewport-relative minimum height
+     * resolves against the screen viewport in print media, not the page box,
+     * and pushes an empty second sheet out of the printer.
+     */
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  .print-root {
+    min-height: 0 !important;
+    height: auto !important;
+  }
+
+  /* Anything not part of the sheet is chrome, and must not print. */
+  .print-hidden {
+    display: none !important;
+  }
+
+  .steel-sheet-scroll {
+    overflow: visible !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  .steel-sheet-paper {
+    width: 277mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .steel-sheet {
+    /* Force Excel's fills through; browsers drop backgrounds by default. */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    page-break-inside: avoid;
+  }
+
+  .steel-sheet tr {
+    page-break-inside: avoid;
+  }
+}

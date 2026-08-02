@@ -198,7 +198,15 @@ export function SettingsForm({ settings, onSave }: SettingsFormProps) {
               render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger className="w-full">
-                    <SelectValue />
+                    <SelectValue>
+                      {() =>
+                        field.value === "before-gst"
+                          ? "Before GST (reduces the taxable value)"
+                          : field.value === "after-gst"
+                            ? "After GST (taxed on the gross)"
+                            : ""
+                      }
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="before-gst">
@@ -263,7 +271,15 @@ export function SettingsForm({ settings, onSave }: SettingsFormProps) {
               render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger className="w-full">
-                    <SelectValue />
+                    <SelectValue>
+                      {() =>
+                        field.value === "indian"
+                          ? "Indian — 6,07,354"
+                          : field.value === "none"
+                            ? "None — 607354 (as the original workbook)"
+                            : ""
+                      }
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="indian">Indian — 6,07,354</SelectItem>

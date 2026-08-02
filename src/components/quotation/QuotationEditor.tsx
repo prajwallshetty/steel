@@ -346,7 +346,13 @@ function PickerField({
             }
           >
             <SelectTrigger className="w-full">
-              <SelectValue placeholder={placeholder} />
+              <SelectValue placeholder={placeholder}>
+                {() =>
+                  field.value && field.value !== NONE
+                    ? (options.find((opt) => opt.id === field.value)?.name || field.value)
+                    : placeholder
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {allowNone && <SelectItem value={NONE}>{placeholder}</SelectItem>}

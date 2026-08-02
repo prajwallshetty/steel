@@ -77,7 +77,15 @@ export function FilterBar({
                 onValueChange={(value) => apply(field.key, value ?? ALL)}
               >
                 <SelectTrigger id={`filter-${field.key}`} className="w-48">
-                  <SelectValue />
+                  <SelectValue>
+                    {() => {
+                      const currentValue = searchParams.get(field.key) ?? ALL;
+                      if (currentValue === ALL) {
+                        return field.placeholder ?? `All ${field.label.toLowerCase()}`;
+                      }
+                      return field.options?.find((opt) => opt.value === currentValue)?.label ?? currentValue;
+                    }}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={ALL}>

@@ -10,8 +10,8 @@ import { listSelectableCustomers } from "@/modules/customers/customer-service";
 import { listSelectableBranches } from "@/modules/branches/branch-service";
 import { listAssignableUsers } from "@/modules/users/user-service";
 import { EDITABLE_STATUSES } from "@/types/quotation";
-import { QuotationEditor } from "@/components/quotation/QuotationEditor";
 import { PageHeading } from "@/components/layout/PageHeading";
+import { QuotationEditor } from "@/components/quotation/QuotationEditorWrapper";
 
 export const dynamic = "force-dynamic";
 

@@ -8,8 +8,8 @@ import { listSelectableCustomers } from "@/modules/customers/customer-service";
 import { listSelectableBranches } from "@/modules/branches/branch-service";
 import { listAssignableUsers } from "@/modules/users/user-service";
 import { createEmptyDraft } from "@/lib/quotation/factory";
-import { QuotationEditor } from "@/components/quotation/QuotationEditor";
 import { PageHeading } from "@/components/layout/PageHeading";
+import { QuotationEditor } from "@/components/quotation/QuotationEditorWrapper";
 
 export const metadata: Metadata = { title: "New quotation" };
 export const dynamic = "force-dynamic";

@@ -140,3 +140,8 @@
     @apply font-sans;
   }
 }
+
+.optimize-rendering {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 80px;
+}

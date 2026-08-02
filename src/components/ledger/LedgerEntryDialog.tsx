@@ -107,7 +107,7 @@ export function LedgerEntryDialog({
         </Field>
 
         <Field
-          label="Reference no."
+          label="Note number"
           error={errors.referenceNo?.message}
           hint="Cheque / UTR / transaction id"
         >

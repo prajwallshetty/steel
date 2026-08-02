@@ -64,7 +64,7 @@ export const ledgerEntrySchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["referenceNo"],
-        message: `A reference number is required for ${value.paymentMethod.replace(/_/g, " ").toLowerCase()} payments`,
+        message: `A Note number is required for ${value.paymentMethod.replace(/_/g, " ").toLowerCase()} payments`,
       });
     }
   });

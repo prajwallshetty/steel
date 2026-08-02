@@ -133,10 +133,7 @@ export function AppShell({
   return (
     <div className="flex min-h-screen">
       <aside className="print-hidden sticky top-0 hidden h-screen w-68 shrink-0 flex-col border-r bg-card lg:flex transition-all duration-300">
-        <div className="flex h-20 items-center gap-3 border-b px-6">
-          <div className="flex size-10 items-center justify-center rounded-lg bg-black text-[16px] font-bold text-white">
-            ST
-          </div>
+        <div className="flex h-20 items-center border-b px-6">
           <span className="text-[17px] font-bold leading-tight text-black">
             Steel ERP
             <span className="block text-xs font-normal text-muted-foreground mt-0.5">

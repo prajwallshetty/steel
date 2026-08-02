@@ -181,7 +181,7 @@ async function ledgerReport(
       { key: "customer", label: "Customer" },
       { key: "particular", label: "Particular" },
       { key: "method", label: "Method" },
-      { key: "referenceNo", label: "Ref no." },
+      { key: "referenceNo", label: "Note number" },
       { key: "status", label: "Status" },
       { key: "branch", label: "Branch" },
       { key: "createdBy", label: "Entered by" },

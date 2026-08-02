@@ -17,26 +17,26 @@ export function PageHeading({
   actions,
 }: PageHeadingProps) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-6 mb-12">
       {backHref && (
         <Link
           href={backHref}
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-2 text-base text-muted-foreground transition-colors hover:text-black font-medium"
         >
-          <ArrowLeft className="size-3.5" />
+          <ArrowLeft className="size-4" />
           {backLabel}
         </Link>
       )}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-6">
+        <div className="space-y-2">
+          <h1 className="text-4xl md:text-[45px] font-bold tracking-tight text-black leading-tight">{title}</h1>
           {description && (
-            <p className="max-w-2xl text-sm text-muted-foreground">
+            <p className="max-w-3xl text-[17px] md:text-[18px] text-muted-foreground leading-relaxed">
               {description}
             </p>
           )}
         </div>
-        {actions}
+        {actions && <div className="flex items-center gap-3">{actions}</div>}
       </div>
     </div>
   );

@@ -132,20 +132,20 @@ export function AppShell({
 
   return (
     <div className="flex min-h-screen">
-      <aside className="print-hidden sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r bg-card lg:flex">
-        <div className="flex h-16 items-center gap-2 border-b px-5">
-          <div className="flex size-8 items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground">
+      <aside className="print-hidden sticky top-0 hidden h-screen w-68 shrink-0 flex-col border-r bg-card lg:flex transition-all duration-300">
+        <div className="flex h-20 items-center gap-3 border-b px-6">
+          <div className="flex size-10 items-center justify-center rounded-lg bg-black text-[16px] font-bold text-white">
             ST
           </div>
-          <span className="text-sm font-semibold leading-tight">
+          <span className="text-[17px] font-bold leading-tight text-black">
             Steel ERP
-            <span className="block text-xs font-normal text-muted-foreground">
+            <span className="block text-xs font-normal text-muted-foreground mt-0.5">
               {user.branchName ?? "All branches"}
             </span>
           </span>
         </div>
 
-        <nav className="flex-1 space-y-6 overflow-y-auto p-3">
+        <nav className="flex-1 space-y-8 overflow-y-auto p-4">
           <NavGroup items={primary} pathname={pathname} />
           {admin.length > 0 && (
             <NavGroup label="Administration" items={admin} pathname={pathname} />
@@ -153,9 +153,9 @@ export function AppShell({
         </nav>
 
         {canCreate && (
-          <div className="p-3">
-            <Button className="w-full" render={<Link href="/quotations/new" />}>
-              <Plus />
+          <div className="p-4 border-t border-border/40">
+            <Button className="w-full h-12 text-[16px] font-bold rounded-lg" render={<Link href="/quotations/new" />}>
+              <Plus className="size-5" />
               New quotation
             </Button>
           </div>
@@ -163,20 +163,20 @@ export function AppShell({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="print-hidden sticky top-0 z-20 flex h-16 items-center justify-between gap-4 border-b bg-background/95 px-6 backdrop-blur">
-          <Link href="/dashboard" className="text-sm font-semibold lg:hidden">
+        <header className="print-hidden sticky top-0 z-20 flex h-20 items-center justify-between gap-4 border-b bg-background/95 px-8 backdrop-blur">
+          <Link href="/dashboard" className="text-lg font-bold lg:hidden text-black">
             Steel ERP
           </Link>
 
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto flex items-center gap-4">
             <NotificationBell
               notifications={notifications}
               unreadCount={unreadCount}
             />
 
             <div className="hidden text-right sm:block">
-              <p className="text-sm font-medium leading-tight">{user.name}</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-[16px] font-bold leading-tight text-black">{user.name}</p>
+              <p className="text-[13px] text-muted-foreground mt-0.5">
                 {ROLE_LABELS[user.role]}
                 {user.branchName ? ` · ${user.branchName}` : ""}
               </p>
@@ -189,14 +189,15 @@ export function AppShell({
                 size="icon"
                 aria-label="Sign out"
                 title="Sign out"
+                className="size-10"
               >
-                <LogOut />
+                <LogOut className="size-5" />
               </Button>
             </form>
           </div>
         </header>
 
-        <main className="min-w-0 flex-1 px-6 py-8">{children}</main>
+        <main className="min-w-0 flex-1 px-8 py-10">{children}</main>
       </div>
     </div>
   );
@@ -213,15 +214,13 @@ function NavGroup({
 }) {
   if (items.length === 0) return null;
   return (
-    <div className="space-y-1">
+    <div className="space-y-2">
       {label && (
-        <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <p className="px-4 pb-2 text-[13px] font-bold uppercase tracking-wider text-muted-foreground/80">
           {label}
         </p>
       )}
       {items.map((item) => {
-        // `/quotations` must not light up while on `/quotations/new`'s sibling
-        // routes only — prefix matching with a boundary check handles both.
         const active =
           pathname === item.href || pathname.startsWith(`${item.href}/`);
         return (
@@ -230,13 +229,13 @@ function NavGroup({
             href={item.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              "flex items-center gap-3 rounded-lg px-4 py-3 text-[16px] md:text-[17px] font-semibold transition-all duration-150",
               active
-                ? "bg-primary/10 text-primary"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                ? "bg-neutral-100 text-black"
+                : "text-muted-foreground hover:bg-neutral-50 hover:text-black",
             )}
           >
-            <item.icon className="size-4" />
+            <item.icon className="size-5 shrink-0" />
             {item.label}
           </Link>
         );

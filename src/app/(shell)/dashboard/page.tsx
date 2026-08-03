@@ -97,20 +97,22 @@ export default async function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {cards.map((card) => (
-          <Card key={card.label}>
-            <CardContent className="flex items-start justify-between gap-4 py-5">
-              <div className="min-w-0">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+          <Card key={card.label} className="group/metric transition-all duration-300 hover:border-primary/20">
+            <CardContent className="flex items-center justify-between gap-4 py-6">
+              <div className="min-w-0 space-y-1">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                   {card.label}
                 </p>
-                <p className="mt-1 truncate text-2xl font-semibold tabular-nums">
+                <p className="truncate text-3xl font-extrabold tracking-tight text-foreground tabular-nums">
                   {card.value}
                 </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground font-medium">
                   {card.hint}
                 </p>
               </div>
-              <card.icon className="size-5 shrink-0 text-muted-foreground" />
+              <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/8 text-primary transition-all duration-300 group-hover/metric:bg-primary group-hover/metric:text-primary-foreground group-hover/metric:scale-105 group-hover/metric:shadow-sm">
+                <card.icon className="size-6" />
+              </div>
             </CardContent>
           </Card>
         ))}
@@ -125,21 +127,21 @@ export default async function DashboardPage() {
             {metrics.monthlyRevenue.every((point) => point.revenue === 0) ? (
               <EmptyNote>No approved quotations in this period yet.</EmptyNote>
             ) : (
-              <div className="flex h-48 items-end gap-1.5">
+              <div className="flex h-48 items-end gap-2.5 pt-4">
                 {metrics.monthlyRevenue.map((point) => (
                   <div
                     key={point.month}
-                    className="group flex flex-1 flex-col items-center gap-1"
+                    className="group flex flex-1 flex-col items-center gap-2"
                     title={`${point.month}: ${money(point.revenue)}`}
                   >
                     <div
-                      className="w-full rounded-t bg-primary/80 transition-colors group-hover:bg-primary"
+                      className="w-full rounded-t bg-primary/85 transition-all duration-300 hover:bg-primary hover:shadow-xs group-hover:scale-y-102 origin-bottom"
                       style={{
                         // Minimum 2px so a zero month is still a visible tick.
                         height: `${Math.max(2, (point.revenue / peakRevenue) * 160)}px`,
                       }}
                     />
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-[10px] font-semibold text-muted-foreground tracking-tight select-none">
                       {point.month.slice(5)}
                     </span>
                   </div>
@@ -155,7 +157,7 @@ export default async function DashboardPage() {
               {isSuper ? "Branch performance" : "Payment methods"}
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-4 pt-2">
             {isSuper ? (
               metrics.branchPerformance.length === 0 ? (
                 <EmptyNote>No branch revenue recorded yet.</EmptyNote>
@@ -200,7 +202,7 @@ export default async function DashboardPage() {
           <CardHeader>
             <CardTitle>Manager performance</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-4 pt-2">
             {metrics.managerPerformance.map((row) => (
               <BarRow
                 key={row.name}
@@ -220,46 +222,46 @@ export default async function DashboardPage() {
         </Card>
       )}
 
-      <Card className="overflow-hidden py-0">
-        <CardHeader className="px-4 pt-4">
+      <Card className="overflow-hidden py-0 shadow-sm border border-border/80">
+        <CardHeader className="px-6 pt-6">
           <CardTitle>Recent quotations</CardTitle>
         </CardHeader>
         <CardContent className="px-0 pb-0">
           {metrics.recentQuotations.length === 0 ? (
-            <div className="px-4 pb-6">
+            <div className="px-6 pb-6">
               <EmptyNote>Nothing here yet.</EmptyNote>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px] text-sm">
                 <thead>
-                  <tr className="border-y bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
-                    <th scope="col" className="px-4 py-2.5 text-left font-semibold">Reference</th>
-                    <th scope="col" className="px-4 py-2.5 text-left font-semibold">Party</th>
-                    <th scope="col" className="px-4 py-2.5 text-left font-semibold">Date</th>
-                    <th scope="col" className="px-4 py-2.5 text-right font-semibold">Total</th>
-                    <th scope="col" className="px-4 py-2.5 text-left font-semibold">Status</th>
+                  <tr className="border-y bg-muted/30 text-xs font-semibold uppercase tracking-wider text-muted-foreground select-none">
+                    <th scope="col" className="px-6 py-3.5 text-left font-bold">Reference</th>
+                    <th scope="col" className="px-6 py-3.5 text-left font-bold">Party</th>
+                    <th scope="col" className="px-6 py-3.5 text-left font-bold">Date</th>
+                    <th scope="col" className="px-6 py-3.5 text-right font-bold">Total</th>
+                    <th scope="col" className="px-6 py-3.5 text-left font-bold">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {metrics.recentQuotations.map((row) => (
-                    <tr key={row.id} className="border-b last:border-b-0 hover:bg-muted/40">
-                      <td className="px-4 py-2.5 font-medium">
+                    <tr key={row.id} className="border-b last:border-b-0 hover:bg-muted/20 transition-colors duration-150">
+                      <td className="px-6 py-4 font-semibold">
                         <Link
                           href={`/quotations/${row.id}`}
-                          className="underline-offset-4 hover:underline"
+                          className="text-primary hover:text-primary/80 transition-colors font-bold"
                         >
                           {row.reference}
                         </Link>
                       </td>
-                      <td className="px-4 py-2.5">{row.partyName}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground">
+                      <td className="px-6 py-4 text-foreground font-medium">{row.partyName}</td>
+                      <td className="px-6 py-4 text-muted-foreground">
                         {formatListDate(row.quotationDate)}
                       </td>
-                      <td className="px-4 py-2.5 text-right font-semibold tabular-nums">
+                      <td className="px-6 py-4 text-right font-bold text-foreground tabular-nums">
                         {money(row.grandTotal)}
                       </td>
-                      <td className="px-4 py-2.5">
+                      <td className="px-6 py-4">
                         <StatusBadge status={row.status} />
                       </td>
                     </tr>
@@ -286,22 +288,22 @@ function BarRow({
   readonly fraction: number;
 }) {
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
       <div className="flex items-baseline justify-between gap-3 text-sm">
-        <span className="truncate font-medium capitalize">{label}</span>
-        <span className="shrink-0 tabular-nums">{value}</span>
+        <span className="truncate font-semibold capitalize text-foreground">{label}</span>
+        <span className="shrink-0 font-bold text-foreground tabular-nums">{value}</span>
       </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+      <div className="h-2 overflow-hidden rounded-full bg-muted/60">
         <div
-          className="h-full rounded-full bg-primary"
+          className="h-full rounded-full bg-gradient-to-r from-primary to-primary/80 transition-all duration-500 ease-out"
           style={{ width: `${Math.max(2, fraction * 100)}%` }}
         />
       </div>
-      {detail && <p className="text-xs text-muted-foreground">{detail}</p>}
+      {detail && <p className="text-xs text-muted-foreground font-medium">{detail}</p>}
     </div>
   );
 }
 
 const EmptyNote = ({ children }: { readonly children: React.ReactNode }) => (
-  <p className="py-6 text-center text-sm text-muted-foreground">{children}</p>
+  <p className="py-8 text-center text-sm text-muted-foreground font-medium select-none">{children}</p>
 );

@@ -131,12 +131,15 @@ export function AppShell({
   const canCreate = granted.has("quotation:create");
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-background">
       <aside className="print-hidden sticky top-0 hidden h-screen w-68 shrink-0 flex-col border-r bg-card lg:flex transition-all duration-300">
-        <div className="flex h-20 items-center border-b px-6">
-          <span className="text-[17px] font-bold leading-tight text-black">
+        <div className="flex h-20 items-center border-b px-6 gap-3">
+          <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold shadow-md shadow-primary/10 select-none">
+            ST
+          </div>
+          <span className="text-[17px] font-extrabold leading-tight text-foreground tracking-tight">
             Steel ERP
-            <span className="block text-xs font-normal text-muted-foreground mt-0.5">
+            <span className="block text-[11px] font-medium text-muted-foreground mt-0.5">
               {user.branchName ?? "All branches"}
             </span>
           </span>
@@ -151,7 +154,7 @@ export function AppShell({
 
         {canCreate && (
           <div className="p-4 border-t border-border/40">
-            <Button className="w-full h-12 text-[16px] font-bold rounded-lg" render={<Link href="/quotations/new" />}>
+            <Button className="w-full h-12 text-[16px] font-bold rounded-lg transition-transform active:scale-[0.98]" render={<Link href="/quotations/new" />}>
               <Plus className="size-5" />
               New quotation
             </Button>
@@ -161,7 +164,10 @@ export function AppShell({
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="print-hidden sticky top-0 z-20 flex h-20 items-center justify-between gap-4 border-b bg-background/95 px-8 backdrop-blur">
-          <Link href="/dashboard" className="text-lg font-bold lg:hidden text-black">
+          <Link href="/dashboard" className="text-lg font-extrabold lg:hidden text-foreground flex items-center gap-2">
+            <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">
+              ST
+            </span>
             Steel ERP
           </Link>
 
@@ -172,7 +178,7 @@ export function AppShell({
             />
 
             <div className="hidden text-right sm:block">
-              <p className="text-[16px] font-bold leading-tight text-black">{user.name}</p>
+              <p className="text-[16px] font-bold leading-tight text-foreground">{user.name}</p>
               <p className="text-[13px] text-muted-foreground mt-0.5">
                 {ROLE_LABELS[user.role]}
                 {user.branchName ? ` · ${user.branchName}` : ""}
@@ -186,7 +192,7 @@ export function AppShell({
                 size="icon"
                 aria-label="Sign out"
                 title="Sign out"
-                className="size-10"
+                className="size-10 text-muted-foreground hover:text-foreground hover:bg-accent"
               >
                 <LogOut className="size-5" />
               </Button>
@@ -194,7 +200,7 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="min-w-0 flex-1 px-8 py-10">{children}</main>
+        <main className="min-w-0 flex-1 px-8 py-10 bg-background">{children}</main>
       </div>
     </div>
   );
@@ -213,7 +219,7 @@ function NavGroup({
   return (
     <div className="space-y-2">
       {label && (
-        <p className="px-4 pb-2 text-[13px] font-bold uppercase tracking-wider text-muted-foreground/80">
+        <p className="px-4 pb-2 text-[11px] font-bold uppercase tracking-widest text-muted-foreground/80">
           {label}
         </p>
       )}
@@ -226,13 +232,16 @@ function NavGroup({
             href={item.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "flex items-center gap-3 rounded-lg px-4 py-3 text-[16px] md:text-[17px] font-semibold transition-all duration-150",
+              "relative flex items-center gap-3 rounded-lg px-4 py-3 text-[16px] md:text-[17px] font-semibold transition-all duration-200 group select-none",
               active
-                ? "bg-neutral-100 text-black"
-                : "text-muted-foreground hover:bg-neutral-50 hover:text-black",
+                ? "bg-primary/8 text-primary shadow-xs"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground",
             )}
           >
-            <item.icon className="size-5 shrink-0" />
+            {active && (
+              <span className="absolute left-0 top-1/4 h-1/2 w-1 rounded-r-md bg-primary" />
+            )}
+            <item.icon className={cn("size-5 shrink-0 transition-transform duration-200 group-hover:scale-105", active ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
             {item.label}
           </Link>
         );

@@ -17,6 +17,7 @@ import {
   duplicateQuotation,
   transitionQuotation,
   updateQuotation,
+  updateQuotationStatus,
 } from "./quotation-service";
 
 /**
@@ -83,6 +84,18 @@ export async function transitionQuotationAction(
     const user = await authorizeAction(PERMISSIONS.QUOTATION_VIEW_OWN);
     const parsed = transitionSchema.parse(input);
     await transitionQuotation(user, id, parsed.status, parsed.reason);
+    revalidateQuotation(id);
+    return actionOk({ id });
+  });
+}
+
+export async function updateQuotationStatusAction(
+  id: string,
+  status: QuotationStatus,
+): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const user = await authorizeAction(PERMISSIONS.QUOTATION_VIEW_OWN);
+    await updateQuotationStatus(user, id, status);
     revalidateQuotation(id);
     return actionOk({ id });
   });

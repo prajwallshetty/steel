@@ -16,6 +16,7 @@ import { PageHeading } from "@/components/layout/PageHeading";
 import { QuotationSheet } from "@/components/quotation/QuotationSheet";
 import { QuotationDocumentActions } from "@/components/quotation/QuotationDocumentActions";
 import { QuotationWorkflowActions } from "@/components/quotation/QuotationWorkflowActions";
+import { QuotationStatusSelector } from "@/components/quotation/QuotationStatusSelector";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +58,7 @@ export default async function QuotationPreviewPage({ params }: PageProps) {
         backLabel="All quotations"
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <StatusBadge status={quotation.status} />
+            <QuotationStatusSelector id={id} currentStatus={quotation.status} />
             {canEdit && (
               <Button
                 variant="outline"

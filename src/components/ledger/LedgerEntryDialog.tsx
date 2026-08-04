@@ -155,7 +155,7 @@ export function LedgerEntryDialog({
         )}
 
         <Field
-          label="Particular"
+          label="Paid through"
           error={errors.particular?.message}
           required
           className="sm:col-span-2"

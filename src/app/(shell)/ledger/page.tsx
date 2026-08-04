@@ -106,7 +106,7 @@ export default async function LedgerPage({ searchParams }: PageProps) {
                 key: "search",
                 label: "Search",
                 type: "search",
-                placeholder: "Reference, particular, customer…",
+                placeholder: "Reference, paid through, customer…",
               },
               {
                 key: "status",
@@ -167,7 +167,7 @@ export default async function LedgerPage({ searchParams }: PageProps) {
                   <th scope="col" className="px-4 py-3 text-left font-semibold">Reference</th>
                   <th scope="col" className="px-4 py-3 text-left font-semibold">Date</th>
                   <th scope="col" className="px-4 py-3 text-left font-semibold">Customer</th>
-                  <th scope="col" className="px-4 py-3 text-left font-semibold">Particular</th>
+                  <th scope="col" className="px-4 py-3 text-left font-semibold">Paid Through</th>
                   <th scope="col" className="px-4 py-3 text-left font-semibold">Method</th>
                   <th scope="col" className="px-4 py-3 text-right font-semibold">Credit</th>
                   <th scope="col" className="px-4 py-3 text-right font-semibold">Debit</th>

@@ -116,10 +116,8 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
         ))}
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card>
+      </div>      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Revenue, last 12 months</CardTitle>
           </CardHeader>
@@ -127,30 +125,113 @@ export default async function DashboardPage() {
             {metrics.monthlyRevenue.every((point) => point.revenue === 0) ? (
               <EmptyNote>No approved quotations in this period yet.</EmptyNote>
             ) : (
-              <div className="flex h-48 items-end gap-2.5 pt-4">
-                {metrics.monthlyRevenue.map((point) => (
-                  <div
-                    key={point.month}
-                    className="group flex flex-1 flex-col items-center gap-2"
-                    title={`${point.month}: ${money(point.revenue)}`}
-                  >
+              <div className="relative h-48 pt-4">
+                {/* Background grid lines */}
+                <div className="absolute inset-x-0 bottom-6 top-4 flex flex-col justify-between pointer-events-none z-0">
+                  <div className="w-full border-t border-muted/50 border-dashed" />
+                  <div className="w-full border-t border-muted/50 border-dashed" />
+                  <div className="w-full border-t border-muted/50 border-dashed" />
+                  <div className="w-full border-t border-muted/50 border-dashed" />
+                  <div className="w-full" /> {/* Ground line */}
+                </div>
+
+                {/* Bars */}
+                <div className="relative flex h-full items-end gap-2.5 z-10">
+                  {metrics.monthlyRevenue.map((point) => (
                     <div
-                      className="w-full rounded-t bg-primary/85 transition-all duration-300 hover:bg-primary hover:shadow-xs group-hover:scale-y-102 origin-bottom"
-                      style={{
-                        // Minimum 2px so a zero month is still a visible tick.
-                        height: `${Math.max(2, (point.revenue / peakRevenue) * 160)}px`,
-                      }}
-                    />
-                    <span className="text-[10px] font-semibold text-muted-foreground tracking-tight select-none">
-                      {point.month.slice(5)}
-                    </span>
-                  </div>
-                ))}
+                      key={point.month}
+                      className="group relative flex flex-1 flex-col items-center gap-2"
+                    >
+                      {/* Premium CSS Tooltip */}
+                      <div className="opacity-0 group-hover:opacity-100 pointer-events-none absolute bottom-full mb-3 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground border text-[10px] py-1.5 px-2.5 rounded-md shadow-md transition-all duration-200 scale-95 group-hover:scale-100 whitespace-nowrap z-30 font-bold flex flex-col items-center select-none">
+                        <span className="text-[9px] font-medium text-muted-foreground capitalize">
+                          {new Date(point.month + "-02").toLocaleString("default", { month: "short", year: "numeric" })}
+                        </span>
+                        <span className="text-foreground tracking-wide mt-0.5">{money(point.revenue)}</span>
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-x-4 border-x-transparent border-t-4 border-t-popover" />
+                      </div>
+
+                      {/* Bar with gradient and shadow */}
+                      <div
+                        className="w-full rounded-t bg-gradient-to-t from-primary/80 to-primary transition-all duration-300 hover:opacity-95 hover:shadow-md hover:shadow-primary/10 origin-bottom"
+                        style={{
+                          // Minimum 2px so a zero month is still a visible tick.
+                          height: `${Math.max(2, (point.revenue / peakRevenue) * 120)}px`,
+                        }}
+                      />
+                      <span className="text-[10px] font-semibold text-muted-foreground tracking-tight select-none mt-1">
+                        {new Date(point.month + "-02").toLocaleString("default", { month: "short" })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </CardContent>
         </Card>
 
+        {/* Quick Actions Panel */}
+        <Card className="lg:col-span-1 flex flex-col">
+          <CardHeader>
+            <CardTitle>Quick Actions</CardTitle>
+          </CardHeader>
+          <CardContent className="flex-1 flex flex-col justify-center gap-3">
+            <Link
+              href="/quotations/new"
+              className="flex items-center gap-3 p-2.5 rounded-lg border bg-card hover:bg-accent/50 hover:border-primary/30 transition-all group/action shadow-xs"
+            >
+              <div className="flex size-9 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 group-hover/action:scale-105 transition-transform duration-200">
+                <FileText className="size-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-foreground">New Quotation</p>
+                <p className="text-[10px] text-muted-foreground font-medium truncate">Create a new sales quote</p>
+              </div>
+            </Link>
+
+            <Link
+              href="/ledger"
+              className="flex items-center gap-3 p-2.5 rounded-lg border bg-card hover:bg-accent/50 hover:border-primary/30 transition-all group/action shadow-xs"
+            >
+              <div className="flex size-9 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 group-hover/action:scale-105 transition-transform duration-200">
+                <Wallet className="size-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-foreground">Record Payment</p>
+                <p className="text-[10px] text-muted-foreground font-medium truncate">Add ledger credit or debit</p>
+              </div>
+            </Link>
+
+            <Link
+              href="/customers"
+              className="flex items-center gap-3 p-2.5 rounded-lg border bg-card hover:bg-accent/50 hover:border-primary/30 transition-all group/action shadow-xs"
+            >
+              <div className="flex size-9 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400 group-hover/action:scale-105 transition-transform duration-200">
+                <Users className="size-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-foreground">Manage Customers</p>
+                <p className="text-[10px] text-muted-foreground font-medium truncate">View and add customer profiles</p>
+              </div>
+            </Link>
+
+            <Link
+              href="/reports"
+              className="flex items-center gap-3 p-2.5 rounded-lg border bg-card hover:bg-accent/50 hover:border-primary/30 transition-all group/action shadow-xs"
+            >
+              <div className="flex size-9 items-center justify-center rounded-lg bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400 group-hover/action:scale-105 transition-transform duration-200">
+                <Building2 className="size-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-foreground">Analytics Reports</p>
+                <p className="text-[10px] text-muted-foreground font-medium truncate">Export performance metrics</p>
+              </div>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className={`grid grid-cols-1 gap-6 ${(!isManager && metrics.managerPerformance.length > 0) ? "lg:grid-cols-2" : "w-full"}`}>
         <Card>
           <CardHeader>
             <CardTitle>
@@ -195,32 +276,32 @@ export default async function DashboardPage() {
             )}
           </CardContent>
         </Card>
-      </div>
 
-      {!isManager && metrics.managerPerformance.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Manager performance</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 pt-2">
-            {metrics.managerPerformance.map((row) => (
-              <BarRow
-                key={row.name}
-                label={row.name}
-                detail={`${row.quotations} quotation${row.quotations === 1 ? "" : "s"}`}
-                value={money(row.revenue)}
-                fraction={
-                  row.revenue /
-                  Math.max(
-                    1,
-                    ...metrics.managerPerformance.map((m) => m.revenue),
-                  )
-                }
-              />
-            ))}
-          </CardContent>
-        </Card>
-      )}
+        {!isManager && metrics.managerPerformance.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Manager performance</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-2">
+              {metrics.managerPerformance.map((row) => (
+                <BarRow
+                  key={row.name}
+                  label={row.name}
+                  detail={`${row.quotations} quotation${row.quotations === 1 ? "" : "s"}`}
+                  value={money(row.revenue)}
+                  fraction={
+                    row.revenue /
+                    Math.max(
+                      1,
+                      ...metrics.managerPerformance.map((m) => m.revenue),
+                    )
+                  }
+                />
+              ))}
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
       <Card className="overflow-hidden py-0 shadow-sm border border-border/80">
         <CardHeader className="px-6 pt-6">

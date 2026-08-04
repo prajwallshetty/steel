@@ -537,6 +537,37 @@ export async function deleteQuotation(
   });
 }
 
+export async function updateQuotationStatus(
+  subject: ScopeSubject,
+  id: string,
+  status: QuotationStatus,
+): Promise<Quotation> {
+  const existing = await requireQuotation(subject, id);
+
+  const updated = await prisma.quotation.update({
+    where: { id },
+    data: {
+      status,
+      approvedById: status === QuotationStatus.APPROVED ? subject.id : existing.approvedById,
+      approvedAt: status === QuotationStatus.APPROVED ? new Date() : existing.approvedAt,
+    },
+    include: QUOTATION_INCLUDE,
+  });
+
+  await recordAudit({
+    action: AuditAction.UPDATE,
+    entity: "Quotation",
+    entityId: id,
+    summary: `Changed status of quotation ${updated.reference} to ${status}`,
+    userId: subject.id,
+    branchId: existing.branchId,
+    oldValue: { status: existing.status },
+    newValue: { status },
+  });
+
+  return toDomainQuotation(updated);
+}
+
 /* ----------------------------- internals ------------------------------- */
 
 function assertMutable(subject: ScopeSubject, record: QuotationRecord): void {

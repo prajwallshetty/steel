@@ -179,7 +179,7 @@ async function ledgerReport(
       { key: "reference", label: "Reference" },
       { key: "date", label: "Date" },
       { key: "customer", label: "Customer" },
-      { key: "particular", label: "Particular" },
+      { key: "particular", label: "Paid Through" },
       { key: "method", label: "Method" },
       { key: "referenceNo", label: "Note number" },
       { key: "status", label: "Status" },

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { FileText, Plus } from "lucide-react";
+import { FileText, Plus, CheckCircle, Clock, FileEdit, Scale, IndianRupee } from "lucide-react";
 import { QuotationStatus } from "@prisma/client";
 import { requireAnyPermission } from "@/modules/auth/guard";
 import { PERMISSIONS, hasPermission } from "@/modules/permissions/permissions";
@@ -63,6 +63,67 @@ export default async function QuotationsPage({ searchParams }: PageProps) {
         }
       />
 
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
+        <Card className="border-l-4 border-l-primary/70 shadow-xs">
+          <CardContent className="p-4 flex items-center justify-between gap-2">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total Listed</p>
+              <p className="text-xl font-extrabold text-foreground mt-0.5">{items.length}</p>
+            </div>
+            <FileText className="size-5 text-primary/60 shrink-0" />
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-emerald-500 shadow-xs">
+          <CardContent className="p-4 flex items-center justify-between gap-2">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Approved</p>
+              <p className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                {items.filter((q) => q.status === "APPROVED").length}
+              </p>
+            </div>
+            <CheckCircle className="size-5 text-emerald-500/60 shrink-0" />
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-amber-500 shadow-xs">
+          <CardContent className="p-4 flex items-center justify-between gap-2">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Pending Approval</p>
+              <p className="text-xl font-extrabold text-amber-600 dark:text-amber-400 mt-0.5">
+                {items.filter((q) => q.status === "PENDING_APPROVAL").length}
+              </p>
+            </div>
+            <Clock className="size-5 text-amber-500/60 shrink-0" />
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-neutral-400 shadow-xs">
+          <CardContent className="p-4 flex items-center justify-between gap-2">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Drafts</p>
+              <p className="text-xl font-extrabold text-muted-foreground mt-0.5">
+                {items.filter((q) => q.status === "DRAFT").length}
+              </p>
+            </div>
+            <FileEdit className="size-5 text-muted-foreground/60 shrink-0" />
+          </CardContent>
+        </Card>
+
+        <Card className="col-span-2 md:col-span-2 lg:col-span-1 border-l-4 border-l-indigo-500 bg-gradient-to-br from-card to-indigo-500/5 shadow-xs">
+          <CardContent className="p-4 flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Scope weight (MT)</p>
+              <p className="text-xl font-extrabold text-indigo-600 dark:text-indigo-400 mt-0.5 flex items-center gap-1 select-none">
+                <Scale className="size-4" />
+                {formatQuantity(items.reduce((acc, q) => acc + q.totalQuantity, 0))}
+              </p>
+            </div>
+            <IndianRupee className="size-5 text-indigo-500/60 shrink-0" />
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
         <CardContent className="py-4">
           <FilterBar
@@ -115,38 +176,41 @@ export default async function QuotationsPage({ searchParams }: PageProps) {
           </CardContent>
         </Card>
       ) : (
-        <Card className="overflow-hidden py-0">
+        <Card className="overflow-hidden py-0 border border-border/80 shadow-xs">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px] text-sm">
               <thead>
                 <tr className="border-b bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
                   <th scope="col" className="px-4 py-3 text-left font-semibold">Reference</th>
                   <th scope="col" className="px-4 py-3 text-left font-semibold">Party</th>
-                  <th scope="col" className="px-4 py-3 text-left font-semibold">Brand / location</th>
+                  <th scope="col" className="px-4 py-3 text-left font-semibold">Brand / Location</th>
                   {canSeeAllBranches && (
                     <th scope="col" className="px-4 py-3 text-left font-semibold">Branch</th>
                   )}
                   <th scope="col" className="px-4 py-3 text-left font-semibold">Date</th>
                   <th scope="col" className="px-4 py-3 text-right font-semibold">Qty (MT)</th>
-                  <th scope="col" className="px-4 py-3 text-right font-semibold">Grand total</th>
+                  <th scope="col" className="px-4 py-3 text-right font-semibold">Grand Total</th>
                   <th scope="col" className="px-4 py-3 text-left font-semibold">Status</th>
+                  <th scope="col" className="px-4 py-3 text-right font-semibold">
+                    <span className="sr-only">Actions</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((quotation) => (
                   <tr
                     key={quotation.id}
-                    className="border-b transition-colors last:border-b-0 hover:bg-muted/40"
+                    className="group border-b transition-colors last:border-b-0 hover:bg-muted/40"
                   >
-                    <td className="px-4 py-3 font-medium">
+                    <td className="px-4 py-3 font-semibold text-primary">
                       <Link
                         href={`/quotations/${quotation.id}`}
-                        className="underline-offset-4 hover:underline"
+                        className="hover:underline"
                       >
                         {quotation.reference}
                       </Link>
                     </td>
-                    <td className="px-4 py-3">{quotation.partyName}</td>
+                    <td className="px-4 py-3 font-medium text-foreground">{quotation.partyName}</td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {quotation.brand} · {quotation.location}
                     </td>
@@ -158,14 +222,24 @@ export default async function QuotationsPage({ searchParams }: PageProps) {
                     <td className="px-4 py-3 text-muted-foreground">
                       {formatListDate(quotation.quotationDate)}
                     </td>
-                    <td className="px-4 py-3 text-right tabular-nums">
+                    <td className="px-4 py-3 text-right tabular-nums text-foreground">
                       {formatQuantity(quotation.totalQuantity)}
                     </td>
-                    <td className="px-4 py-3 text-right font-semibold tabular-nums">
+                    <td className="px-4 py-3 text-right font-bold text-foreground tabular-nums">
                       {formatMoney(quotation.grandTotal, grouping)}
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={quotation.status} />
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        className="opacity-0 group-hover:opacity-100 group-hover:bg-accent/80 transition-all font-semibold"
+                        render={<Link href={`/quotations/${quotation.id}`} />}
+                      >
+                        View
+                      </Button>
                     </td>
                   </tr>
                 ))}

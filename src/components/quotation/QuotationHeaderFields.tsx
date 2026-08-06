@@ -157,6 +157,27 @@ export function QuotationHeaderFields({
           )}
         />
       </Field>
+
+      <Field
+        label="CD% (all rows)"
+        error={headerErrors?.cdPercent?.message}
+        hint="Updates all row cash discount %"
+      >
+        <Controller
+          control={control}
+          name="header.cdPercent"
+          render={({ field }) => (
+            <Input
+              type="number"
+              step="any"
+              value={field.value ?? ""}
+              onChange={(e) => field.onChange(e.target.value === "" ? null : Number(e.target.value))}
+              disabled={disabled}
+              placeholder="1.5"
+            />
+          )}
+        />
+      </Field>
     </div>
   );
 }

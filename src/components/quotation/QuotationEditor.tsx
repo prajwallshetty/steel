@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, useTransition } from "react";
+import { useCallback, useMemo, useState, useTransition, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Controller, useForm, useWatch, type Control } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -71,6 +71,55 @@ interface QuotationEditorProps {
 
 const NONE = "__none__";
 
+interface ParsedDiaDiff {
+  firstTier: number | null;
+  secondTier: number | null;
+  loading: number | null;
+}
+
+function parseBasicRate(label: string): number | null {
+  const clean = label.trim();
+  const dashMatch = clean.match(/^(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)/);
+  if (dashMatch) {
+    const a = Number(dashMatch[1]);
+    const b = Number(dashMatch[2]);
+    return a - b;
+  }
+  const singleMatch = clean.match(/^(\d+(?:\.\d+)?)/);
+  if (singleMatch) {
+    return Number(singleMatch[1]);
+  }
+  return null;
+}
+
+function parseDiaDiff(label: string): ParsedDiaDiff {
+  const clean = label.trim().replace(/\s+/g, "");
+  
+  let loading: number | null = null;
+  const loadingMatch = clean.match(/\+(\d+(?:\.\d+)?)$/);
+  let basePart = clean;
+  if (loadingMatch) {
+    loading = Number(loadingMatch[1]);
+    basePart = clean.slice(0, loadingMatch.index);
+  }
+  
+  let firstTier: number | null = null;
+  let secondTier: number | null = null;
+  
+  const slashMatch = basePart.match(/^(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)/);
+  if (slashMatch) {
+    firstTier = Number(slashMatch[1]);
+    secondTier = Number(slashMatch[2]);
+  } else {
+    const singleMatch = basePart.match(/^(\d+(?:\.\d+)?)/);
+    if (singleMatch) {
+      firstTier = Number(singleMatch[1]);
+    }
+  }
+  
+  return { firstTier, secondTier, loading };
+}
+
 /**
  * The quotation editor.
  *
@@ -109,6 +158,80 @@ export function QuotationEditor({
     defaultValues: initialDraft,
     mode: "onBlur",
   });
+
+  const basicRateLabelValue = useWatch({ control, name: "header.basicRateLabel" });
+  const cdPercentValue = useWatch({ control, name: "header.cdPercent" });
+  const diaDiffLabelValue = useWatch({ control, name: "header.diaDiffLabel" });
+
+  const prevBasicRateLabel = useRef<string | undefined>(initialDraft.header.basicRateLabel);
+  useEffect(() => {
+    if (basicRateLabelValue !== prevBasicRateLabel.current) {
+      prevBasicRateLabel.current = basicRateLabelValue;
+      if (basicRateLabelValue) {
+        const calculatedBasic = parseBasicRate(basicRateLabelValue);
+        if (calculatedBasic !== null) {
+          const rows = getValues("rows") || [];
+          rows.forEach((_, index) => {
+            setValue(`rows.${index}.basic`, calculatedBasic, { shouldDirty: true });
+          });
+        }
+      }
+    }
+  }, [basicRateLabelValue, getValues, setValue]);
+
+  const prevCdPercent = useRef<number | null | undefined>(initialDraft.header.cdPercent);
+  useEffect(() => {
+    if (cdPercentValue !== prevCdPercent.current) {
+      prevCdPercent.current = cdPercentValue;
+      if (cdPercentValue !== undefined && cdPercentValue !== null) {
+        const rows = getValues("rows") || [];
+        rows.forEach((_, index) => {
+          setValue(`rows.${index}.discountPercent`, cdPercentValue, { shouldDirty: true });
+        });
+      }
+    }
+  }, [cdPercentValue, getValues, setValue]);
+
+  const prevDiaDiffLabel = useRef<string | undefined>(initialDraft.header.diaDiffLabel);
+  useEffect(() => {
+    if (diaDiffLabelValue !== prevDiaDiffLabel.current) {
+      prevDiaDiffLabel.current = diaDiffLabelValue;
+      if (diaDiffLabelValue) {
+        const { firstTier, secondTier, loading } = parseDiaDiff(diaDiffLabelValue);
+        const differences = settings.differences;
+        
+        // Find default tiers from settings (non-zero differences, sorted descending)
+        const defaultTiers = [
+          ...new Set(
+            settings.sizes
+              .map((size) => differences[size] ?? 0)
+              .filter((diff) => diff > 0),
+          ),
+        ].sort((a, b) => b - a);
+
+        if (firstTier !== null) {
+          const rows = getValues("rows") || [];
+          rows.forEach((row, index) => {
+            const defaultDiff = differences[row.size] ?? 0;
+            if (defaultDiff > 0) {
+              let newDiff = firstTier;
+              if (secondTier !== null && defaultTiers.length > 1 && defaultDiff <= defaultTiers[1]) {
+                newDiff = secondTier;
+              }
+              setValue(`rows.${index}.difference`, newDiff, { shouldDirty: true });
+              
+              if (loading !== null) {
+                setValue(`rows.${index}.loading`, loading, { shouldDirty: true });
+              }
+            } else {
+              setValue(`rows.${index}.difference`, 0, { shouldDirty: true });
+              setValue(`rows.${index}.loading`, 0, { shouldDirty: true });
+            }
+          });
+        }
+      }
+    }
+  }, [diaDiffLabelValue, getValues, setValue, settings]);
 
   const submit = useCallback(
     (status: QuotationStatus) => {

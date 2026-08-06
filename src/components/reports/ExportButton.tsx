@@ -6,13 +6,19 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
 /**
- * CSV download.
+ * CSV or PDF download.
  *
  * Fetched rather than linked so a failure (an expired session, a permission
  * change since the page loaded) surfaces as a toast instead of navigating the
  * user to a JSON error body.
  */
-export function ExportButton({ href }: { readonly href: string }) {
+export function ExportButton({
+  href,
+  label = "Export CSV",
+}: {
+  readonly href: string;
+  readonly label?: string;
+}) {
   const [busy, setBusy] = useState(false);
 
   const download = async () => {
@@ -35,7 +41,8 @@ export function ExportButton({ href }: { readonly href: string }) {
       const filename =
         response.headers
           .get("content-disposition")
-          ?.match(/filename="([^"]+)"/)?.[1] ?? "report.csv";
+          ?.match(/filename="([^"]+)"/)?.[1] ??
+        (href.includes("format=pdf") ? "report.pdf" : "report.csv");
 
       url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -56,7 +63,7 @@ export function ExportButton({ href }: { readonly href: string }) {
   return (
     <Button onClick={download} disabled={busy}>
       {busy ? <Loader2 className="animate-spin" /> : <Download />}
-      Export CSV
+      {label}
     </Button>
   );
 }

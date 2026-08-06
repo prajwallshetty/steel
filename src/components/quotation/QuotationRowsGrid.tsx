@@ -16,8 +16,8 @@ const EDITABLE_COLUMNS = [
   { field: "quantity", label: "Quantity", hint: "MT" },
   { field: "basic", label: "Basic", hint: "₹/MT" },
   { field: "difference", label: "Dia diff", hint: "₹/MT" },
-  { field: "loading", label: "Loading", hint: "₹/MT" },
   { field: "discountPercent", label: "CD", hint: "%" },
+  { field: "loading", label: "Loading", hint: "₹/MT" },
   { field: "gstPercent", label: "GST", hint: "%" },
 ] as const;
 

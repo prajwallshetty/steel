@@ -1,21 +1,19 @@
 import type { Metadata } from "next";
-import { LedgerStatus, PaymentMethod, Role } from "@prisma/client";
-import { Wallet } from "lucide-react";
+import Link from "next/link";
+import { Role } from "@prisma/client";
+import { BookOpen, Users, Printer } from "lucide-react";
 import { requireAnyPermission } from "@/modules/auth/guard";
-import { PERMISSIONS, hasPermission } from "@/modules/permissions/permissions";
-import { listLedger } from "@/modules/ledger/ledger-service";
+import { PERMISSIONS } from "@/modules/permissions/permissions";
 import { listSelectableCustomers } from "@/modules/customers/customer-service";
-import { listSelectableBranches } from "@/modules/branches/branch-service";
+import { getCustomerLedger } from "@/modules/receipt-payment/receipt-service";
 import { getSettings } from "@/modules/settings/settings-service";
 import { formatListDate, formatMoney } from "@/lib/format/number";
 import { Card, CardContent } from "@/components/ui/card";
-import { StatusBadge } from "@/components/shared/StatusBadge";
-import { FilterBar } from "@/components/shared/FilterBar";
 import { PageHeading } from "@/components/layout/PageHeading";
-import { LedgerEntryDialog } from "@/components/ledger/LedgerEntryDialog";
-import { LedgerRowActions } from "@/components/ledger/LedgerRowActions";
+import { LedgerFilter } from "./LedgerFilter";
+import { Button } from "@/components/ui/button";
 
-export const metadata: Metadata = { title: "Cash ledger" };
+export const metadata: Metadata = { title: "Customer Ledger" };
 export const dynamic = "force-dynamic";
 
 const VIEW_PERMISSIONS = [
@@ -28,210 +26,215 @@ interface PageProps {
   readonly searchParams: Promise<Record<string, string | undefined>>;
 }
 
-export default async function LedgerPage({ searchParams }: PageProps) {
+export default async function CustomerLedgerPage({ searchParams }: PageProps) {
   const user = await requireAnyPermission(VIEW_PERMISSIONS);
   const params = await searchParams;
 
-  const isSuper = user.role === Role.SUPER_ADMIN;
-  const canApprove = hasPermission(user, PERMISSIONS.LEDGER_APPROVE);
-
-  const [page, customers, branches, settings] = await Promise.all([
-    listLedger(user, {
-      search: params.search,
-      from: params.from,
-      to: params.to,
-      status: params.status as LedgerStatus | undefined,
-      paymentMethod: params.paymentMethod as PaymentMethod | undefined,
-      branchId: params.branchId,
-    }),
+  const [customers, settings] = await Promise.all([
     listSelectableCustomers(user, user.branchId ?? undefined),
-    isSuper ? listSelectableBranches(user) : Promise.resolve([]),
     getSettings(user.branchId),
   ]);
 
   const grouping = settings.display.numberGrouping;
   const money = (value: number) => formatMoney(value, grouping);
 
-  // Newest first for reading; the running balance was accumulated oldest-first.
-  const rows = [...page.rows].reverse();
+  const selectedCustomerId = params.customerId;
+  const selectedCustomer = selectedCustomerId
+    ? customers.find((c) => c.id === selectedCustomerId)
+    : null;
 
-  const summary = [
-    { label: "Opening balance", value: money(page.openingBalance) },
-    { label: "Credits", value: money(page.totalCredit), tone: "text-emerald-600" },
-    { label: "Debits", value: money(page.totalDebit), tone: "text-red-600" },
-    { label: "Pending", value: money(page.pendingAmount), tone: "text-amber-600" },
-    { label: "Closing balance", value: money(page.closingBalance), strong: true },
-  ];
+  let ledger = null;
+  if (selectedCustomerId) {
+    try {
+      ledger = await getCustomerLedger(user, selectedCustomerId, {
+        from: params.from,
+        to: params.to,
+        branchId: user.branchId ?? undefined,
+      });
+    } catch (e) {
+      // Gracefully handle not found or authorization issues
+      console.error(e);
+    }
+  }
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6">
       <PageHeading
-        title="Cash ledger"
-        description={`${page.count} ${page.count === 1 ? "entry" : "entries"}${user.branchName ? ` · ${user.branchName}` : ""}`}
+        title="Customer Ledger"
+        description="View the consolidated financial history of a customer, including invoices, receipts, and refunds."
         actions={
-          hasPermission(user, PERMISSIONS.LEDGER_CREATE) ? (
-            <LedgerEntryDialog
-              customers={customers.map((c) => ({ id: c.id, name: c.name }))}
-              branches={branches.map((b) => ({ id: b.id, name: b.name }))}
-              canSelectBranch={isSuper}
-              canApprove={canApprove}
-              defaultBranchId={user.branchId}
-            />
+          selectedCustomerId ? (
+            <Button
+              variant="outline"
+              size="sm"
+              render={
+                <Link
+                  href={`/ledger/print?customerId=${selectedCustomerId}${params.from ? `&from=${params.from}` : ""}${params.to ? `&to=${params.to}` : ""}`}
+                  target="_blank"
+                />
+              }
+            >
+              <Printer className="size-4 mr-1.5" />
+              Print Statement
+            </Button>
           ) : undefined
         }
       />
 
-      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border lg:grid-cols-5">
-        {summary.map((cell) => (
-          <div key={cell.label} className="bg-card px-4 py-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              {cell.label}
-            </p>
-            <p
-              className={`text-lg font-semibold tabular-nums ${cell.tone ?? ""} ${
-                cell.strong ? "text-xl" : ""
-              }`}
-            >
-              {cell.value}
-            </p>
-          </div>
-        ))}
-      </div>
-
       <Card>
         <CardContent className="py-4">
-          <FilterBar
-            fields={[
-              {
-                key: "search",
-                label: "Search",
-                type: "search",
-                placeholder: "Reference, paid through, customer…",
-              },
-              {
-                key: "status",
-                label: "Status",
-                type: "select",
-                options: Object.values(LedgerStatus).map((status) => ({
-                  value: status,
-                  label: status.toLowerCase(),
-                })),
-              },
-              {
-                key: "paymentMethod",
-                label: "Method",
-                type: "select",
-                options: Object.values(PaymentMethod).map((method) => ({
-                  value: method,
-                  label: method.replace(/_/g, " ").toLowerCase(),
-                })),
-              },
-              ...(isSuper
-                ? [
-                    {
-                      key: "branchId",
-                      label: "Branch",
-                      type: "select" as const,
-                      options: branches.map((branch) => ({
-                        value: branch.id,
-                        label: branch.name,
-                      })),
-                    },
-                  ]
-                : []),
-              { key: "from", label: "From", type: "date" },
-              { key: "to", label: "To", type: "date" },
-            ]}
-          />
+          <LedgerFilter customers={customers} />
         </CardContent>
       </Card>
 
-      {rows.length === 0 ? (
+      {!ledger ? (
         <Card>
-          <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
-            <Wallet className="size-8 text-muted-foreground" />
+          <CardContent className="flex flex-col items-center gap-3 py-16 text-center text-muted-foreground">
+            <Users className="size-12 text-muted-foreground/60" />
             <div>
-              <p className="font-medium">No ledger entries</p>
-              <p className="text-sm text-muted-foreground">
-                Record a payment to start the cash book.
+              <p className="font-semibold text-lg text-foreground">No customer selected</p>
+              <p className="text-sm">
+                Select a customer from the dropdown above to view their financial ledger.
               </p>
             </div>
           </CardContent>
         </Card>
       ) : (
-        <Card className="overflow-hidden py-0">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1080px] text-sm">
-              <thead>
-                <tr className="border-b bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
-                  <th scope="col" className="px-4 py-3 text-left font-semibold">Reference</th>
-                  <th scope="col" className="px-4 py-3 text-left font-semibold">Date</th>
-                  <th scope="col" className="px-4 py-3 text-left font-semibold">Customer</th>
-                  <th scope="col" className="px-4 py-3 text-left font-semibold">Paid Through</th>
-                  <th scope="col" className="px-4 py-3 text-left font-semibold">Method</th>
-                  <th scope="col" className="px-4 py-3 text-right font-semibold">Credit</th>
-                  <th scope="col" className="px-4 py-3 text-right font-semibold">Debit</th>
-                  <th scope="col" className="px-4 py-3 text-right font-semibold">Balance</th>
-                  <th scope="col" className="px-4 py-3 text-left font-semibold">Status</th>
-                  <th scope="col" className="px-4 py-3 text-right font-semibold">
-                    <span className="sr-only">Actions</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr
-                    key={row.id}
-                    className="border-b transition-colors last:border-b-0 hover:bg-muted/40"
-                  >
-                    <td className="px-4 py-3 font-mono text-xs font-medium">
-                      {row.reference}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {formatListDate(row.entryDate)}
-                    </td>
-                    <td className="px-4 py-3">{row.customerName ?? "—"}</td>
-                    <td className="px-4 py-3">
-                      {row.particular}
-                      {row.quotationReference && (
-                        <span className="block text-xs text-muted-foreground">
-                          {row.quotationReference}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-xs capitalize text-muted-foreground">
-                      {row.paymentMethod.replace(/_/g, " ").toLowerCase()}
-                      {row.referenceNo && (
-                        <span className="block font-mono">{row.referenceNo}</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right tabular-nums text-emerald-700">
-                      {row.direction === "CREDIT" ? money(row.amount) : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-right tabular-nums text-red-700">
-                      {row.direction === "DEBIT" ? money(row.amount) : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-right font-semibold tabular-nums">
-                      {money(row.runningBalance)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={row.status} kind="ledger" />
-                    </td>
-                    <td className="px-4 py-3">
-                      <LedgerRowActions
-                        id={row.id}
-                        reference={row.reference}
-                        status={row.status}
-                        canApprove={canApprove}
-                        canDelete={hasPermission(user, PERMISSIONS.LEDGER_DELETE)}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+            <Card className="bg-card">
+              <CardContent className="p-4">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
+                  Opening Balance
+                </p>
+                <p className="text-xl font-bold tabular-nums text-foreground mt-1">
+                  {money(ledger.openingBalance)}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-card">
+              <CardContent className="p-4">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
+                  Total Debits (Sales)
+                </p>
+                <p className="text-xl font-bold tabular-nums text-red-600 mt-1">
+                  {money(ledger.totalDebit)}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-card">
+              <CardContent className="p-4">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
+                  Total Credits (Receipts)
+                </p>
+                <p className="text-xl font-bold tabular-nums text-emerald-600 mt-1">
+                  {money(ledger.totalCredit)}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-card border-2 border-primary/20 bg-primary/5">
+              <CardContent className="p-4">
+                <p className="text-xs uppercase tracking-wide text-primary font-semibold">
+                  Outstanding Balance
+                </p>
+                <p className="text-2xl font-black tabular-nums text-foreground mt-1">
+                  {money(ledger.closingBalance)}
+                </p>
+              </CardContent>
+            </Card>
           </div>
-        </Card>
+
+          <Card className="overflow-hidden py-0">
+            {ledger.rows.length === 0 ? (
+              <CardContent className="py-16 text-center text-sm text-muted-foreground flex flex-col items-center gap-2">
+                <BookOpen className="size-8 text-muted-foreground/60" />
+                <p>No transactions found for the selected period.</p>
+              </CardContent>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[850px] text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground font-semibold">
+                      <th scope="col" className="px-4 py-3 text-left font-bold">Date</th>
+                      <th scope="col" className="px-4 py-3 text-left font-bold">Voucher No</th>
+                      <th scope="col" className="px-4 py-3 text-left font-bold">Type</th>
+                      <th scope="col" className="px-4 py-3 text-left font-bold">Description</th>
+                      <th scope="col" className="px-4 py-3 text-right font-bold">Debit (+)</th>
+                      <th scope="col" className="px-4 py-3 text-right font-bold">Credit (-)</th>
+                      <th scope="col" className="px-4 py-3 text-right font-bold">Balance</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {/* Render Opening Balance Row */}
+                    <tr className="border-b bg-muted/20 font-medium italic">
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {params.from ? formatListDate(params.from) : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">—</td>
+                      <td className="px-4 py-3">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          O/B
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">Opening Balance B/F</td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {ledger.openingBalance > 0 ? money(ledger.openingBalance) : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {ledger.openingBalance < 0 ? money(Math.abs(ledger.openingBalance)) : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold tabular-nums text-foreground">
+                        {money(ledger.openingBalance)}
+                      </td>
+                    </tr>
+
+                    {ledger.rows.map((row: any) => (
+                      <tr
+                        key={row.id}
+                        className="border-b transition-colors last:border-b-0 hover:bg-muted/40"
+                      >
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {formatListDate(row.date)}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-xs font-semibold text-primary">
+                          {row.voucherNo}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
+                              row.type === "INVOICE"
+                                ? "bg-blue-100 text-blue-700 border-blue-200"
+                                : row.type === "RECEIPT"
+                                ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                                : "bg-orange-100 text-orange-700 border-orange-200"
+                            }`}
+                          >
+                            {row.type}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-foreground font-medium">
+                          {row.description}
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold text-red-600 tabular-nums">
+                          {row.debit > 0 ? money(row.debit) : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold text-emerald-700 tabular-nums">
+                          {row.credit > 0 ? money(row.credit) : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-right font-bold tabular-nums text-foreground">
+                          {money(row.balance)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        </>
       )}
     </div>
   );

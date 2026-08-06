@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Role } from "@prisma/client";
-import { Users } from "lucide-react";
+import { Users, FileText } from "lucide-react";
 import { requirePermission } from "@/modules/auth/guard";
 import { PERMISSIONS, hasPermission } from "@/modules/permissions/permissions";
 import { listCustomers } from "@/modules/customers/customer-service";
@@ -10,6 +11,7 @@ import { FilterBar } from "@/components/shared/FilterBar";
 import { PageHeading } from "@/components/layout/PageHeading";
 import { CustomerDialog } from "@/components/customers/CustomerDialog";
 import { CustomerRowActions } from "@/components/customers/CustomerRowActions";
+import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = { title: "Customers" };
 export const dynamic = "force-dynamic";
@@ -142,6 +144,16 @@ export default async function CustomersPage({ searchParams }: PageProps) {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          render={<Link href={`/ledger?customerId=${customer.id}`} />}
+                          title="View Ledger"
+                          aria-label="View Ledger"
+                          className="size-8 text-muted-foreground hover:text-foreground animate-none transition-all duration-150"
+                        >
+                          <FileText className="size-4" />
+                        </Button>
                         {canUpdate && (
                           <CustomerDialog
                             customer={{

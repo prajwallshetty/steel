@@ -105,11 +105,11 @@ describe("cash discount", () => {
       highlighted: false,
     });
     expect(result.grossRate).toBe(43095);
-    expect(result.discountAmount).toBe(646.425);
-    expect(result.taxableValue).toBe(42448.575);
-    expect(result.gstAmount).toBe(7640.7435);
-    expect(result.rate).toBe(50089.3185);
-    expect(result.total).toBe(100178.637);
+    expect(result.discountAmount).toBe(642);
+    expect(result.taxableValue).toBe(42453);
+    expect(result.gstAmount).toBe(7641.54);
+    expect(result.rate).toBe(50094.54);
+    expect(result.total).toBe(100189.08);
   });
 
   it("taxes the gross when applied after tax", () => {
@@ -119,8 +119,8 @@ describe("cash discount", () => {
     });
     expect(result.taxableValue).toBe(43095);
     expect(result.gstAmount).toBe(7757.1);
-    // 43095 + 7757.1 - 646.425
-    expect(result.rate).toBe(50205.675);
+    // 43095 + 7757.1 - 642
+    expect(result.rate).toBe(50210.1);
   });
 
   it("is a no-op at 0%, which is what the reference sheet charges", () => {

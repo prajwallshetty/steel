@@ -12,7 +12,7 @@ import { prisma } from "@/lib/database/prisma";
  * removes the race entirely, without an explicit lock or a retry loop.
  */
 
-export type SequenceKind = "QUOTATION" | "LEDGER";
+export type SequenceKind = "QUOTATION" | "LEDGER" | "PAYMENT" | "RECEIPT";
 
 export async function nextSequenceValue(
   branchId: string,
@@ -44,6 +44,13 @@ export function formatReference(
   year: number,
   value: number,
 ): string {
-  const token = kind === "QUOTATION" ? "QT" : "LDG";
+  let token = "LDG";
+  if (kind === "QUOTATION") {
+    token = "QT";
+  } else if (kind === "PAYMENT") {
+    token = "PAY";
+  } else if (kind === "RECEIPT") {
+    token = "RCT";
+  }
   return `${branchCode}/${token}/${year}/${String(value).padStart(4, "0")}`;
 }

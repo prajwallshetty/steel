@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const ROLES = ["SUPER_ADMIN", "BRANCH_ADMIN", "MANAGER"] as const;
+export const ROLES = ["SUPER_ADMIN", "BRANCH_ADMIN", "MANAGER", "ACCOUNTANT", "SALES"] as const;
 
 const passwordField = z
   .string()

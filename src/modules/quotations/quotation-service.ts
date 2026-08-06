@@ -1,5 +1,5 @@
 import "server-only";
-import { AuditAction, NotificationType, Prisma, QuotationStatus, Role } from "@prisma/client";
+import { AuditAction, NotificationType, Prisma, QuotationStatus, Role, LedgerDirection, LedgerStatus } from "@prisma/client";
 import { prisma, NOT_DELETED } from "@/lib/database/prisma";
 import type { Quotation } from "@/types/quotation";
 import { calculateQuotation } from "@/lib/quotation-engine";
@@ -248,10 +248,10 @@ export async function createQuotation(
     const serial = await nextSequenceValue(branchId, "QUOTATION", year, tx);
     const reference = formatReference(branch.code, "QUOTATION", year, serial);
 
-    return tx.quotation.create({
+    const q = await tx.quotation.create({
       data: {
         reference,
-        status: input.status,
+        status: QuotationStatus.COMPLETED,
         branchId,
         customerId: input.customerId ?? null,
         assignedToId,
@@ -273,6 +273,32 @@ export async function createQuotation(
       },
       include: QUOTATION_INCLUDE,
     });
+
+    const receiptSerial = await nextSequenceValue(branchId, "RECEIPT", year, tx);
+    const receiptReference = formatReference(branch.code, "RECEIPT", year, receiptSerial);
+    
+    await tx.cashLedgerEntry.create({
+      data: {
+        reference: receiptReference,
+        entryDate: new Date(input.header.date),
+        branchId,
+        customerId: input.customerId ?? null,
+        quotationId: q.id,
+        partyType: "CUSTOMER",
+        partyName: input.header.partyName,
+        direction: LedgerDirection.CREDIT,
+        amount: new Prisma.Decimal(totals.grandTotal),
+        paymentMethod: "CASH",
+        particular: `Auto-generated receipt for Quotation ${reference}`,
+        status: LedgerStatus.RECEIVED,
+        createdById: subject.id,
+        updatedById: subject.id,
+        approvedById: subject.id,
+        approvedAt: new Date(),
+      }
+    });
+
+    return q;
   });
 
   await recordAudit({
@@ -305,14 +331,7 @@ export async function updateQuotation(
   const existing = await requireQuotation(subject, id);
   assertMutable(subject, existing);
 
-  if (
-    existing.status === QuotationStatus.APPROVED ||
-    existing.status === QuotationStatus.COMPLETED
-  ) {
-    throw new BusinessRuleError(
-      "An approved quotation is a record of a commitment and cannot be edited. Duplicate it to make changes.",
-    );
-  }
+
   if (existing.status === QuotationStatus.CANCELLED) {
     throw new BusinessRuleError("This quotation has been cancelled.");
   }
@@ -326,10 +345,10 @@ export async function updateQuotation(
     // and a positional diff would be more fragile than a clean rewrite.
     await tx.quotationRow.deleteMany({ where: { quotationId: id } });
 
-    return tx.quotation.update({
+    const q = await tx.quotation.update({
       where: { id },
       data: {
-        status: input.status,
+        status: QuotationStatus.COMPLETED,
         customerId: input.customerId ?? existing.customerId,
         assignedToId:
           subject.role === Role.MANAGER
@@ -348,15 +367,22 @@ export async function updateQuotation(
         grandTotal: new Prisma.Decimal(totals.grandTotal),
         totalQuantity: new Prisma.Decimal(totals.totalQuantity),
         updatedById: subject.id,
-        // Re-submitting a rejected quotation clears the previous reason.
-        rejectionReason:
-          input.status === QuotationStatus.PENDING_APPROVAL
-            ? null
-            : existing.rejectionReason,
+        rejectionReason: null,
         rows: { create: rowsToCreate(input) },
       },
       include: QUOTATION_INCLUDE,
     });
+
+    await tx.cashLedgerEntry.updateMany({
+      where: { quotationId: id, direction: LedgerDirection.CREDIT, deletedAt: null },
+      data: {
+        amount: q.grandTotal,
+        entryDate: new Date(q.quotationDate),
+        partyName: q.partyName,
+      }
+    });
+
+    return q;
   });
 
   await recordAudit({
@@ -512,18 +538,17 @@ export async function deleteQuotation(
   if (!hasPermission(subject, PERMISSIONS.QUOTATION_DELETE)) {
     throw new ForbiddenError("You do not have permission to delete quotations.");
   }
-  if (
-    existing.status === QuotationStatus.APPROVED ||
-    existing.status === QuotationStatus.COMPLETED
-  ) {
-    throw new BusinessRuleError(
-      "Approved quotations cannot be deleted. Cancel it instead so the record is kept.",
-    );
-  }
 
-  await prisma.quotation.update({
-    where: { id },
-    data: { deletedAt: new Date(), updatedById: subject.id },
+  await prisma.$transaction(async (tx) => {
+    await tx.quotation.update({
+      where: { id },
+      data: { deletedAt: new Date(), updatedById: subject.id },
+    });
+
+    await tx.cashLedgerEntry.updateMany({
+      where: { quotationId: id, direction: LedgerDirection.CREDIT, deletedAt: null },
+      data: { deletedAt: new Date(), updatedById: subject.id },
+    });
   });
 
   await recordAudit({

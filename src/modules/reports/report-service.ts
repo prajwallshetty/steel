@@ -174,11 +174,11 @@ async function ledgerReport(
 
   let balance = 0;
   return {
-    title: "Cash ledger report",
+    title: "Receipts & Payments report",
     columns: [
       { key: "reference", label: "Reference" },
       { key: "date", label: "Date" },
-      { key: "customer", label: "Customer" },
+      { key: "customer", label: "Party Name" },
       { key: "particular", label: "Paid Through" },
       { key: "method", label: "Method" },
       { key: "referenceNo", label: "Note number" },
@@ -198,7 +198,7 @@ async function ledgerReport(
       return {
         reference: row.reference,
         date: row.entryDate.toISOString().slice(0, 10),
-        customer: row.customer?.name ?? "—",
+        customer: row.partyName ?? row.customer?.name ?? "—",
         particular: row.particular,
         method: row.paymentMethod,
         referenceNo: row.referenceNo ?? "—",

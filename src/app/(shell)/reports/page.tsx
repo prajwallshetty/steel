@@ -27,7 +27,7 @@ const VIEW_PERMISSIONS = [
 const REPORTS: readonly { key: ReportKind; label: string; superOnly?: boolean }[] = [
   { key: "quotations", label: "Quotations" },
   { key: "customers", label: "Customers" },
-  { key: "ledger", label: "Cash ledger" },
+  { key: "ledger", label: "Receipts & Payments" },
   { key: "gst", label: "GST" },
   { key: "manager-performance", label: "Managers" },
   { key: "branch-performance", label: "Branches", superOnly: true },
@@ -88,7 +88,10 @@ export default async function ReportsPage({ searchParams }: PageProps) {
         description={`${report.rows.length} ${report.rows.length === 1 ? "row" : "rows"} in scope.`}
         actions={
           hasPermission(user, PERMISSIONS.REPORT_EXPORT) ? (
-            <ExportButton href={`/api/reports/export?${query.toString()}`} />
+            <div className="flex gap-2">
+              <ExportButton href={`/api/reports/export?${query.toString()}&format=csv`} label="Export CSV" />
+              <ExportButton href={`/api/reports/export?${query.toString()}&format=pdf`} label="Export PDF" />
+            </div>
           ) : undefined
         }
       />

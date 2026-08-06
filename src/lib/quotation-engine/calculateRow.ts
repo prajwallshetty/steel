@@ -28,10 +28,13 @@ export function calculateRow(
   input: QuotationRowInput,
   options: RowCalculationOptions,
 ): CalculatedRow {
+  const effectiveBasic = input.quantity === 0 ? 0 : input.basic;
   const differencePlusLoading = toEnginePrecision(input.difference + input.loading);
-  const grossRate = toEnginePrecision(input.basic + differencePlusLoading);
+  const grossRate = toEnginePrecision(effectiveBasic + differencePlusLoading);
 
-  const discountAmount = calculateDiscount(grossRate, input.discountPercent);
+  // CD is calculated as (Basic rate + Dia diff) * CD%
+  const discountBaseValue = toEnginePrecision(effectiveBasic + input.difference);
+  const discountAmount = calculateDiscount(discountBaseValue, input.discountPercent);
 
   const taxableValue =
     options.discountBase === "before-gst"
@@ -49,6 +52,7 @@ export function calculateRow(
 
   return {
     ...input,
+    basic: effectiveBasic,
     differencePlusLoading,
     grossRate,
     discountAmount,

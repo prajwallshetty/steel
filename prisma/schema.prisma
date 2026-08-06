@@ -28,6 +28,8 @@ enum Role {
   SUPER_ADMIN
   BRANCH_ADMIN
   MANAGER
+  ACCOUNTANT
+  SALES
 }
 
 enum UserStatus {
@@ -124,8 +126,10 @@ model Branch {
 
   users          User[]
   customers      Customer[]
+  vendors        Vendor[]
   quotations     Quotation[]
   ledgerEntries  CashLedgerEntry[]
+  vendorBills    VendorBill[]
   auditLogs      AuditLog[]
   notifications  Notification[]
   /// Per-branch pricing/master-data override; falls back to the global row.
@@ -172,8 +176,12 @@ model User {
   ledgerCreated      CashLedgerEntry[] @relation("LedgerCreatedBy")
   ledgerUpdated      CashLedgerEntry[] @relation("LedgerUpdatedBy")
   ledgerApproved     CashLedgerEntry[] @relation("LedgerApprovedBy")
+  vendorBillsCreated VendorBill[]      @relation("VendorBillCreatedBy")
+  vendorBillsUpdated VendorBill[]      @relation("VendorBillUpdatedBy")
   customersCreated   Customer[]        @relation("CustomerCreatedBy")
   customersUpdated   Customer[]        @relation("CustomerUpdatedBy")
+  vendorsCreated     Vendor[]          @relation("VendorCreatedBy")
+  vendorsUpdated     Vendor[]          @relation("VendorUpdatedBy")
   branchesCreated    Branch[]          @relation("BranchCreatedBy")
   branchesUpdated    Branch[]          @relation("BranchUpdatedBy")
   usersCreated       User[]            @relation("UserCreatedBy")
@@ -244,6 +252,35 @@ model Customer {
   @@unique([branchId, name])
   @@index([branchId, deletedAt])
   @@map("customers")
+}
+
+model Vendor {
+  id       String  @id @default(cuid())
+  name     String
+  phone    String?
+  email    String?
+  gstNumber String?
+  address  String?
+  city     String?
+  state    String?
+  pin      String?
+
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+
+  ledgerEntries CashLedgerEntry[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  createdById String?
+  updatedById String?
+  createdBy   User?     @relation("VendorCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy   User?     @relation("VendorUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([branchId, name])
+  @@index([branchId, deletedAt])
+  @@map("vendors")
 }
 
 /// A quotation document.
@@ -352,6 +389,9 @@ model CashLedgerEntry {
   quotationId String?
   quotation   Quotation? @relation(fields: [quotationId], references: [id], onDelete: SetNull)
 
+  vendorId String?
+  vendor   Vendor?   @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+
   /// CREDIT is money received; DEBIT is money paid out or reversed.
   direction     LedgerDirection @default(CREDIT)
   amount        Decimal         @db.Decimal(16, 2)
@@ -373,11 +413,39 @@ model CashLedgerEntry {
   createdBy   User?     @relation("LedgerCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy   User?     @relation("LedgerUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
+  partyType     String?
+  partyName     String?
+  vendorBillId  String?
+  vendorBill    VendorBill?     @relation(fields: [vendorBillId], references: [id], onDelete: SetNull)
+
   @@index([branchId, entryDate, deletedAt])
   @@index([branchId, status])
   @@index([customerId])
+  @@index([vendorId])
   @@index([createdById])
   @@map("cash_ledger_entries")
+}
+
+model VendorBill {
+  id            String            @id @default(cuid())
+  billNumber    String
+  vendorName    String
+  amount        Decimal           @db.Decimal(16, 2)
+  billDate      DateTime          @db.Date
+  branchId      String
+  branch        Branch            @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  deletedAt     DateTime?
+  createdById   String?
+  updatedById   String?
+  createdBy     User?             @relation("VendorBillCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy     User?             @relation("VendorBillUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  ledgerEntries CashLedgerEntry[]
+
+  @@unique([branchId, billNumber, vendorName])
+  @@index([branchId, deletedAt])
+  @@map("vendor_bills")
 }
 
 /// Opening balance per branch, so running balances do not require replaying

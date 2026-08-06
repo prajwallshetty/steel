@@ -28,6 +28,8 @@ const ROLE_RANK: Record<Role, number> = {
   SUPER_ADMIN: 0,
   BRANCH_ADMIN: 1,
   MANAGER: 2,
+  ACCOUNTANT: 3,
+  SALES: 4,
 };
 
 function assertMayAssignRole(subject: ScopeSubject, target: Role): void {

@@ -55,14 +55,32 @@ const PRIMARY_NAV: readonly NavItem[] = [
   },
   {
     href: "/customers",
-    label: "Customers",
+    label: "Add Customer",
     icon: Users,
     anyOf: ["customer:view"],
   },
   {
-    href: "/ledger",
-    label: "Cash ledger",
+    href: "/vendors",
+    label: "Add Vendor",
+    icon: Users,
+    anyOf: ["customer:view"],
+  },
+  {
+    href: "/customer-payments",
+    label: "Customer Payment",
     icon: Wallet,
+    anyOf: ["ledger:view_all", "ledger:view_branch", "ledger:view_own"],
+  },
+  {
+    href: "/vendor-payments",
+    label: "Vendor Payment",
+    icon: Wallet,
+    anyOf: ["ledger:view_all", "ledger:view_branch", "ledger:view_own"],
+  },
+  {
+    href: "/ledger",
+    label: "Ledger",
+    icon: BookOpenCheck,
     anyOf: ["ledger:view_all", "ledger:view_branch", "ledger:view_own"],
   },
   {

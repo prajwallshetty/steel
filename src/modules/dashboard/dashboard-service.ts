@@ -1,5 +1,5 @@
 import "server-only";
-import { LedgerStatus, QuotationStatus, Role, UserStatus } from "@prisma/client";
+import { LedgerDirection, LedgerStatus, QuotationStatus, Role, UserStatus } from "@prisma/client";
 import { prisma, NOT_DELETED } from "@/lib/database/prisma";
 import {
   ledgerScope,
@@ -8,18 +8,6 @@ import {
   quotationWhere,
   type ScopeSubject,
 } from "@/modules/permissions/scope";
-
-/**
- * Dashboard aggregates.
- *
- * Every figure is computed through the caller's scope, so the same code serves
- * all three roles: a Super Admin sees the organisation, a branch admin sees
- * their branch, and a manager sees their own book — without a separate query
- * path per role that could drift out of agreement.
- *
- * Reads the denormalised `grandTotal` column rather than replaying the pricing
- * engine over every row of every quotation.
- */
 
 const SETTLED: LedgerStatus[] = [LedgerStatus.RECEIVED, LedgerStatus.CLEARED];
 const REVENUE_STATUSES: QuotationStatus[] = [
@@ -58,20 +46,63 @@ export interface DashboardMetrics {
     status: QuotationStatus;
     quotationDate: string;
   }[];
+
+  // New Metrics
+  readonly paymentsToday: number;
+  readonly receiptsToday: number;
+  readonly cashBalance: number;
+  readonly bankBalance: number;
+  readonly outstandingReceivables: number;
+  readonly outstandingPayables: number;
+  readonly monthlyCashFlow: readonly { month: string; incoming: number; outgoing: number }[];
+  readonly todayTransactions: readonly {
+    id: string;
+    reference: string;
+    date: string;
+    partyName: string;
+    particular: string;
+    amount: number;
+    direction: string;
+    status: LedgerStatus;
+  }[];
 }
 
 const isoDay = (date: Date) => date.toISOString().slice(0, 10);
 
+export interface DashboardFilters {
+  readonly from?: string;
+  readonly to?: string;
+}
+
 export async function getDashboardMetrics(
   subject: ScopeSubject,
+  filters?: DashboardFilters,
 ): Promise<DashboardMetrics> {
   const qScope = quotationWhere(quotationScope(subject));
   const lScope = ledgerWhere(ledgerScope(subject));
 
   const now = new Date();
   const today = isoDay(now);
-  const monthStart = isoDay(new Date(now.getFullYear(), now.getMonth(), 1));
-  const yearStart = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+
+  const from = filters?.from;
+  const to = filters?.to;
+  const isFiltered = Boolean(from || to);
+
+  // For period-based queries
+  const startDay = from ?? today;
+  const endDay = to ?? today;
+  const startDate = new Date(startDay);
+  const endDate = new Date(endDay);
+
+  // For outstanding / balance queries, we go from beginning of time up to endDate
+  const balanceEndDay = to ?? today;
+  const balanceEndDate = new Date(balanceEndDay);
+
+  // For charts (past 12 months if not filtered, otherwise the filtered range)
+  const chartStart = isFiltered ? startDate : new Date(now.getFullYear(), now.getMonth() - 11, 1);
+  const chartEnd = isFiltered ? endDate : now;
+  const chartStartDay = isFiltered ? startDay : isoDay(chartStart);
+  const chartEndDay = isFiltered ? endDay : isoDay(chartEnd);
 
   const quotationBase = { AND: [qScope, NOT_DELETED] };
   const ledgerBase = { AND: [lScope, NOT_DELETED] };
@@ -93,10 +124,30 @@ export async function getDashboardMetrics(
     managerRows,
     paymentRows,
     recent,
+
+    // New queries
+    paymentsTodayRes,
+    receiptsTodayRes,
+    cashCreditsRes,
+    cashDebitsRes,
+    bankCreditsRes,
+    bankDebitsRes,
+    totalInvoicedRes,
+    totalReceivedOnInvoicesRes,
+    totalBillsRes,
+    totalPaidOnBillsRes,
+    cashFlowEntries,
+    todayTransactionsEntries,
   ] = await Promise.all([
     prisma.quotation.aggregate({
       _sum: { grandTotal: true },
-      where: { AND: [quotationBase, { status: { in: REVENUE_STATUSES } }] },
+      where: {
+        AND: [
+          quotationBase,
+          { status: { in: REVENUE_STATUSES } },
+          isFiltered ? { quotationDate: { gte: startDay, lte: endDay } } : {},
+        ],
+      },
     }),
     prisma.quotation.aggregate({
       _sum: { grandTotal: true },
@@ -104,19 +155,35 @@ export async function getDashboardMetrics(
         AND: [
           quotationBase,
           { status: { in: REVENUE_STATUSES } },
-          { quotationDate: { gte: monthStart } },
+          isFiltered
+            ? { quotationDate: { gte: startDay, lte: endDay } }
+            : { quotationDate: { gte: isoDay(new Date(now.getFullYear(), now.getMonth(), 1)) } },
         ],
       },
     }),
     prisma.quotation.count({
-      where: { AND: [quotationBase, { quotationDate: today }] },
+      where: {
+        AND: [
+          quotationBase,
+          isFiltered
+            ? { quotationDate: { gte: startDay, lte: endDay } }
+            : { quotationDate: today },
+        ],
+      },
     }),
     prisma.quotation.count({
       where: {
         AND: [quotationBase, { status: QuotationStatus.PENDING_APPROVAL }],
       },
     }),
-    prisma.quotation.count({ where: quotationBase }),
+    prisma.quotation.count({
+      where: {
+        AND: [
+          quotationBase,
+          isFiltered ? { quotationDate: { gte: startDay, lte: endDay } } : {},
+        ],
+      },
+    }),
     prisma.customer.count({
       where: {
         ...NOT_DELETED,
@@ -126,12 +193,23 @@ export async function getDashboardMetrics(
     prisma.cashLedgerEntry.aggregate({
       _sum: { amount: true },
       where: {
-        AND: [ledgerBase, { status: { in: SETTLED } }, { direction: "CREDIT" }],
+        AND: [
+          ledgerBase,
+          { status: { in: SETTLED } },
+          { direction: "CREDIT" },
+          isFiltered ? { entryDate: { gte: startDate, lte: endDate } } : {},
+        ],
       },
     }),
     prisma.cashLedgerEntry.aggregate({
       _sum: { amount: true },
-      where: { AND: [ledgerBase, { status: LedgerStatus.PENDING }] },
+      where: {
+        AND: [
+          ledgerBase,
+          { status: LedgerStatus.PENDING },
+          isFiltered ? { entryDate: { gte: startDate, lte: endDate } } : {},
+        ],
+      },
     }),
     isSuper || subject.role === Role.BRANCH_ADMIN
       ? prisma.user.count({
@@ -150,7 +228,7 @@ export async function getDashboardMetrics(
         AND: [
           quotationBase,
           { status: { in: REVENUE_STATUSES } },
-          { quotationDate: { gte: isoDay(yearStart) } },
+          { quotationDate: { gte: chartStartDay, lte: chartEndDay } },
         ],
       },
       select: { quotationDate: true, grandTotal: true },
@@ -158,7 +236,13 @@ export async function getDashboardMetrics(
     isSuper
       ? prisma.quotation.groupBy({
           by: ["branchId"],
-          where: { AND: [quotationBase, { status: { in: REVENUE_STATUSES } }] },
+          where: {
+            AND: [
+              quotationBase,
+              { status: { in: REVENUE_STATUSES } },
+              isFiltered ? { quotationDate: { gte: startDay, lte: endDay } } : {},
+            ],
+          },
           _sum: { grandTotal: true },
           _count: { _all: true },
         })
@@ -167,17 +251,34 @@ export async function getDashboardMetrics(
       ? Promise.resolve([])
       : prisma.quotation.groupBy({
           by: ["assignedToId"],
-          where: { AND: [quotationBase, { status: { in: REVENUE_STATUSES } }] },
+          where: {
+            AND: [
+              quotationBase,
+              { status: { in: REVENUE_STATUSES } },
+              isFiltered ? { quotationDate: { gte: startDay, lte: endDay } } : {},
+            ],
+          },
           _sum: { grandTotal: true },
           _count: { _all: true },
         }),
     prisma.cashLedgerEntry.groupBy({
       by: ["paymentMethod"],
-      where: { AND: [ledgerBase, { status: { in: SETTLED } }] },
+      where: {
+        AND: [
+          ledgerBase,
+          { status: { in: SETTLED } },
+          isFiltered ? { entryDate: { gte: startDate, lte: endDate } } : {},
+        ],
+      },
       _sum: { amount: true },
     }),
     prisma.quotation.findMany({
-      where: quotationBase,
+      where: {
+        AND: [
+          quotationBase,
+          isFiltered ? { quotationDate: { gte: startDay, lte: endDay } } : {},
+        ],
+      },
       orderBy: { createdAt: "desc" },
       take: 8,
       select: {
@@ -189,19 +290,227 @@ export async function getDashboardMetrics(
         quotationDate: true,
       },
     }),
+
+    // Payments in Period (DEBIT entries in period)
+    prisma.cashLedgerEntry.aggregate({
+      _sum: { amount: true },
+      where: {
+        AND: [
+          ledgerBase,
+          { direction: LedgerDirection.DEBIT },
+          { status: { in: SETTLED } },
+          isFiltered
+            ? { entryDate: { gte: startDate, lte: endDate } }
+            : { entryDate: new Date(today) },
+        ],
+      },
+    }),
+
+    // Receipts in Period (CREDIT entries in period)
+    prisma.cashLedgerEntry.aggregate({
+      _sum: { amount: true },
+      where: {
+        AND: [
+          ledgerBase,
+          { direction: LedgerDirection.CREDIT },
+          { status: { in: SETTLED } },
+          isFiltered
+            ? { entryDate: { gte: startDate, lte: endDate } }
+            : { entryDate: new Date(today) },
+        ],
+      },
+    }),
+
+    // Cash Credits
+    prisma.cashLedgerEntry.aggregate({
+      _sum: { amount: true },
+      where: {
+        AND: [
+          ledgerBase,
+          { direction: LedgerDirection.CREDIT },
+          { status: { in: SETTLED } },
+          { paymentMethod: "CASH" },
+          { entryDate: { lte: balanceEndDate } },
+        ],
+      },
+    }),
+
+    // Cash Debits
+    prisma.cashLedgerEntry.aggregate({
+      _sum: { amount: true },
+      where: {
+        AND: [
+          ledgerBase,
+          { direction: LedgerDirection.DEBIT },
+          { status: { in: SETTLED } },
+          { paymentMethod: "CASH" },
+          { entryDate: { lte: balanceEndDate } },
+        ],
+      },
+    }),
+
+    // Bank Credits
+    prisma.cashLedgerEntry.aggregate({
+      _sum: { amount: true },
+      where: {
+        AND: [
+          ledgerBase,
+          { direction: LedgerDirection.CREDIT },
+          { status: { in: SETTLED } },
+          { paymentMethod: { not: "CASH" } },
+          { entryDate: { lte: balanceEndDate } },
+        ],
+      },
+    }),
+
+    // Bank Debits
+    prisma.cashLedgerEntry.aggregate({
+      _sum: { amount: true },
+      where: {
+        AND: [
+          ledgerBase,
+          { direction: LedgerDirection.DEBIT },
+          { status: { in: SETTLED } },
+          { paymentMethod: { not: "CASH" } },
+          { entryDate: { lte: balanceEndDate } },
+        ],
+      },
+    }),
+
+    // Total Invoiced for outstanding receivables
+    prisma.quotation.aggregate({
+      _sum: { grandTotal: true },
+      where: {
+        AND: [
+          quotationBase,
+          { status: { in: REVENUE_STATUSES } },
+          { quotationDate: { lte: balanceEndDay } },
+        ],
+      },
+    }),
+
+    // Total Received against invoices
+    prisma.cashLedgerEntry.aggregate({
+      _sum: { amount: true },
+      where: {
+        AND: [
+          ledgerBase,
+          { status: { in: SETTLED } },
+          { direction: LedgerDirection.CREDIT },
+          { quotationId: { not: null } },
+          { entryDate: { lte: balanceEndDate } },
+        ],
+      },
+    }),
+
+    // Total Vendor Bills for outstanding payables
+    prisma.vendorBill.aggregate({
+      _sum: { amount: true },
+      where: {
+        AND: [
+          isSuper ? {} : { branchId: subject.branchId ?? "__none__" },
+          NOT_DELETED,
+          { billDate: { lte: balanceEndDate } },
+        ],
+      },
+    }),
+
+    // Total Paid against vendor bills
+    prisma.cashLedgerEntry.aggregate({
+      _sum: { amount: true },
+      where: {
+        AND: [
+          ledgerBase,
+          { status: { in: SETTLED } },
+          { direction: LedgerDirection.DEBIT },
+          { vendorBillId: { not: null } },
+          { entryDate: { lte: balanceEndDate } },
+        ],
+      },
+    }),
+
+    // Cash flow entries for the period
+    prisma.cashLedgerEntry.findMany({
+      where: {
+        AND: [
+          ledgerBase,
+          { status: { in: SETTLED } },
+          { entryDate: { gte: chartStart, lte: chartEnd } },
+        ],
+      },
+      select: { entryDate: true, amount: true, direction: true },
+    }),
+
+    // Transactions in period
+    prisma.cashLedgerEntry.findMany({
+      where: {
+        AND: [
+          ledgerBase,
+          isFiltered
+            ? { entryDate: { gte: startDate, lte: endDate } }
+            : { entryDate: new Date(today) },
+        ],
+      },
+      orderBy: { createdAt: "desc" },
+      take: 6,
+      select: {
+        id: true,
+        reference: true,
+        entryDate: true,
+        partyName: true,
+        particular: true,
+        amount: true,
+        direction: true,
+        status: true,
+      },
+    }),
   ]);
 
-  // Bucket by month in application code: the set is already narrowed to one
-  // year and one scope, so this avoids a raw date_trunc query.
+  // Bucket by month for revenue
   const monthly = new Map<string, number>();
-  for (let index = 11; index >= 0; index -= 1) {
-    const date = new Date(now.getFullYear(), now.getMonth() - index, 1);
-    monthly.set(date.toISOString().slice(0, 7), 0);
+  const flowMonthly = new Map<string, { incoming: number; outgoing: number }>();
+
+  if (isFiltered) {
+    let current = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+    const endLimit = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+    let count = 0;
+    while (current <= endLimit && count < 36) {
+      const year = current.getFullYear();
+      const month = String(current.getMonth() + 1).padStart(2, "0");
+      const key = `${year}-${month}`;
+      monthly.set(key, 0);
+      flowMonthly.set(key, { incoming: 0, outgoing: 0 });
+      current.setMonth(current.getMonth() + 1);
+      count++;
+    }
+  } else {
+    for (let index = 11; index >= 0; index -= 1) {
+      const date = new Date(now.getFullYear(), now.getMonth() - index, 1);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      monthly.set(`${year}-${month}`, 0);
+      flowMonthly.set(`${year}-${month}`, { incoming: 0, outgoing: 0 });
+    }
   }
+
   for (const row of revenueRows) {
     const key = row.quotationDate.slice(0, 7);
     if (monthly.has(key)) {
       monthly.set(key, (monthly.get(key) ?? 0) + Number(row.grandTotal));
+    }
+  }
+
+  for (const row of cashFlowEntries) {
+    const year = row.entryDate.getUTCFullYear();
+    const month = String(row.entryDate.getUTCMonth() + 1).padStart(2, "0");
+    const key = `${year}-${month}`;
+    if (flowMonthly.has(key)) {
+      const val = flowMonthly.get(key)!;
+      if (row.direction === LedgerDirection.CREDIT) {
+        val.incoming += Number(row.amount);
+      } else {
+        val.outgoing += Number(row.amount);
+      }
     }
   }
 
@@ -228,6 +537,19 @@ export async function getDashboardMetrics(
 
   const branchNameById = new Map(branchNames.map((b) => [b.id, b.name]));
   const managerNameById = new Map(managerNames.map((u) => [u.id, u.name]));
+
+  const cashBalance = Number(cashCreditsRes._sum?.amount ?? 0) - Number(cashDebitsRes._sum?.amount ?? 0);
+  const bankBalance = Number(bankCreditsRes._sum?.amount ?? 0) - Number(bankDebitsRes._sum?.amount ?? 0);
+
+  const outstandingReceivables = Math.max(
+    0,
+    Number(totalInvoicedRes._sum?.grandTotal ?? 0) - Number(totalReceivedOnInvoicesRes._sum?.amount ?? 0)
+  );
+
+  const outstandingPayables = Math.max(
+    0,
+    Number(totalBillsRes._sum?.amount ?? 0) - Number(totalPaidOnBillsRes._sum?.amount ?? 0)
+  );
 
   return {
     totalRevenue: Number(revenueAll._sum?.grandTotal ?? 0),
@@ -275,6 +597,29 @@ export async function getDashboardMetrics(
       grandTotal: Number(row.grandTotal),
       status: row.status,
       quotationDate: row.quotationDate,
+    })),
+
+    // New metrics
+    paymentsToday: Number(paymentsTodayRes._sum?.amount ?? 0),
+    receiptsToday: Number(receiptsTodayRes._sum?.amount ?? 0),
+    cashBalance,
+    bankBalance,
+    outstandingReceivables,
+    outstandingPayables,
+    monthlyCashFlow: [...flowMonthly.entries()].map(([month, flow]) => ({
+      month,
+      incoming: flow.incoming,
+      outgoing: flow.outgoing,
+    })),
+    todayTransactions: todayTransactionsEntries.map((entry) => ({
+      id: entry.id,
+      reference: entry.reference,
+      date: entry.entryDate.toISOString().slice(0, 10),
+      partyName: entry.partyName ?? entry.particular,
+      particular: entry.particular,
+      amount: Number(entry.amount),
+      direction: entry.direction,
+      status: entry.status,
     })),
   };
 }

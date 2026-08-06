@@ -63,7 +63,7 @@ export default async function QuotationsPage({ searchParams }: PageProps) {
         }
       />
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Card className="border-l-4 border-l-primary/70 shadow-xs">
           <CardContent className="p-4 flex items-center justify-between gap-2">
             <div>
@@ -74,43 +74,7 @@ export default async function QuotationsPage({ searchParams }: PageProps) {
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-emerald-500 shadow-xs">
-          <CardContent className="p-4 flex items-center justify-between gap-2">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Approved</p>
-              <p className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5">
-                {items.filter((q) => q.status === "APPROVED").length}
-              </p>
-            </div>
-            <CheckCircle className="size-5 text-emerald-500/60 shrink-0" />
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-amber-500 shadow-xs">
-          <CardContent className="p-4 flex items-center justify-between gap-2">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Pending Approval</p>
-              <p className="text-xl font-extrabold text-amber-600 dark:text-amber-400 mt-0.5">
-                {items.filter((q) => q.status === "PENDING_APPROVAL").length}
-              </p>
-            </div>
-            <Clock className="size-5 text-amber-500/60 shrink-0" />
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-neutral-400 shadow-xs">
-          <CardContent className="p-4 flex items-center justify-between gap-2">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Drafts</p>
-              <p className="text-xl font-extrabold text-muted-foreground mt-0.5">
-                {items.filter((q) => q.status === "DRAFT").length}
-              </p>
-            </div>
-            <FileEdit className="size-5 text-muted-foreground/60 shrink-0" />
-          </CardContent>
-        </Card>
-
-        <Card className="col-span-2 md:col-span-2 lg:col-span-1 border-l-4 border-l-indigo-500 bg-gradient-to-br from-card to-indigo-500/5 shadow-xs">
+        <Card className="border-l-4 border-l-indigo-500 bg-gradient-to-br from-card to-indigo-500/5 shadow-xs">
           <CardContent className="p-4 flex items-center justify-between gap-4">
             <div className="min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Scope weight (MT)</p>
@@ -134,15 +98,7 @@ export default async function QuotationsPage({ searchParams }: PageProps) {
                 type: "search",
                 placeholder: "Reference, party, brand…",
               },
-              {
-                key: "status",
-                label: "Status",
-                type: "select",
-                options: Object.values(QuotationStatus).map((status) => ({
-                  value: status,
-                  label: status.replace(/_/g, " ").toLowerCase(),
-                })),
-              },
+
               ...(canSeeAllBranches
                 ? [
                     {
@@ -190,7 +146,7 @@ export default async function QuotationsPage({ searchParams }: PageProps) {
                   <th scope="col" className="px-4 py-3 text-left font-semibold">Date</th>
                   <th scope="col" className="px-4 py-3 text-right font-semibold">Qty (MT)</th>
                   <th scope="col" className="px-4 py-3 text-right font-semibold">Grand Total</th>
-                  <th scope="col" className="px-4 py-3 text-left font-semibold">Status</th>
+
                   <th scope="col" className="px-4 py-3 text-right font-semibold">
                     <span className="sr-only">Actions</span>
                   </th>
@@ -228,9 +184,7 @@ export default async function QuotationsPage({ searchParams }: PageProps) {
                     <td className="px-4 py-3 text-right font-bold text-foreground tabular-nums">
                       {formatMoney(quotation.grandTotal, grouping)}
                     </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={quotation.status} />
-                    </td>
+
                     <td className="px-4 py-3 text-right">
                       <Button
                         variant="ghost"

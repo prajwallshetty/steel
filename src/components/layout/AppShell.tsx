@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/layout/NotificationBell";
 import { logoutAction } from "@/modules/auth/auth-actions";
+import { PWAInstallButton } from "./PWAInstallButton";
 import { ROLE_LABELS, type Permission } from "@/modules/permissions/permissions";
 import type { Role } from "@prisma/client";
 
@@ -82,12 +83,6 @@ const PRIMARY_NAV: readonly NavItem[] = [
     label: "Ledger",
     icon: BookOpenCheck,
     anyOf: ["ledger:view_all", "ledger:view_branch", "ledger:view_own"],
-  },
-  {
-    href: "/reports",
-    label: "Reports",
-    icon: BookOpenCheck,
-    anyOf: ["report:view_all", "report:view_branch", "report:view_own"],
   },
 ];
 
@@ -168,6 +163,9 @@ export function AppShell({
           {admin.length > 0 && (
             <NavGroup label="Administration" items={admin} pathname={pathname} />
           )}
+          <div className="pt-4 border-t border-border/40">
+            <PWAInstallButton />
+          </div>
         </nav>
 
         {canCreate && (

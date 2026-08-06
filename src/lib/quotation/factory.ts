@@ -60,6 +60,7 @@ export function createEmptyDraft(settings: AppSettings): QuotationDraftInput {
       brand: settings.brands[0] ?? "",
       basicRateLabel: `${baseBasic}-4000`,
       cdPercent: settings.pricing.defaultDiscountPercent,
+      cdType: "basic-diff",
       diaDiffLabel: deriveDiaDiffLabel(settings),
       payment: settings.paymentTypes[0] ?? "",
       vehicleNo: "",

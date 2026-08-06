@@ -312,6 +312,7 @@ model Quotation {
   basicRateLabel String
   diaDiffLabel   String
   payment        String
+  cdType         String   @default("basic-diff")
   vehicleNo      String   @default("")
   remarks        String   @default("")
 

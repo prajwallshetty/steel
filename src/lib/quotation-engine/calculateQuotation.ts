@@ -55,6 +55,7 @@ export function calculateQuotation(
     calculateRow(row, {
       discountBase: settings.pricing.discountBase,
       highlighted: row.highlight ?? highlighted.has(row.size),
+      cdType: quotation.header.cdType,
     }),
   );
 

@@ -22,7 +22,7 @@ const EDITABLE_COLUMNS = [
 ] as const;
 
 interface QuotationRowsGridProps {
-  readonly control: Control<QuotationDraftInput>;
+  readonly control: any;
   readonly settings: AppSettings;
   readonly disabled?: boolean;
 }
@@ -41,6 +41,7 @@ export function QuotationRowsGrid({
 }: QuotationRowsGridProps) {
   const { fields } = useFieldArray({ control, name: "rows" });
   const rows = useWatch({ control, name: "rows" }) as QuotationDraftInput["rows"];
+  const cdType = useWatch({ control, name: "header.cdType" }) as "basic" | "basic-diff" | "gross" | undefined;
 
   const { containerRef, handleKeyDown } = useGridNavigation(
     fields.length,
@@ -54,9 +55,10 @@ export function QuotationRowsGrid({
       calculateRow(row, {
         discountBase: settings.pricing.discountBase,
         highlighted: row.highlight ?? highlighted.has(row.size),
+        cdType: cdType ?? "basic-diff",
       }),
     );
-  }, [rows, settings.highlightSizes, settings.pricing.discountBase]);
+  }, [rows, settings.highlightSizes, settings.pricing.discountBase, cdType]);
 
   const grouping = settings.display.numberGrouping;
 
@@ -104,7 +106,7 @@ export function QuotationRowsGrid({
               key={field.id}
               control={control}
               index={index}
-              size={field.size}
+              size={rows?.[index]?.size ?? ""}
               calculated={calculated[index]}
               grouping={grouping}
               disabled={disabled}

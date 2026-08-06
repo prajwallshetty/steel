@@ -16,6 +16,7 @@ export const metadata: Metadata = {
   },
   description:
     "Role-based, multi-branch ERP for steel trading — Excel-faithful quotations, cash ledger, approvals and reporting.",
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({
@@ -26,6 +27,17 @@ export default function RootLayout({
       <body className="min-h-full bg-muted/30 text-foreground">
         {children}
         <Toaster position="top-right" richColors />
+        <script dangerouslySetInnerHTML={{ __html: `
+          if ('serviceWorker' in navigator) {
+            if (document.readyState === 'complete') {
+              navigator.serviceWorker.register('/sw.js');
+            } else {
+              window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/sw.js');
+              });
+            }
+          }
+        `}} />
       </body>
     </html>
   );

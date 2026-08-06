@@ -9,6 +9,8 @@ export interface RowCalculationOptions {
   readonly discountBase: DiscountBase;
   /** Resolved by `calculateQuotation`; overrides the row's own flag. */
   readonly highlighted: boolean;
+  /** Cash discount calculation type. Defaults to 'basic-diff'. */
+  readonly cdType?: "basic" | "basic-diff" | "gross";
 }
 
 /**
@@ -32,9 +34,17 @@ export function calculateRow(
   const differencePlusLoading = toEnginePrecision(input.difference + input.loading);
   const grossRate = toEnginePrecision(effectiveBasic + differencePlusLoading);
 
-  // CD is calculated as (Basic rate + Dia diff) * CD%
-  const discountBaseValue = toEnginePrecision(effectiveBasic + input.difference);
-  const discountAmount = calculateDiscount(discountBaseValue, input.discountPercent);
+  // CD calculation based on cdType:
+  // - basic: basic rate * CD%
+  // - basic-diff: (basic rate + Dia diff) * CD%
+  // - gross: (basic rate + Dia diff + loading) * CD%
+  let discountBaseValue = effectiveBasic;
+  if (!options.cdType || options.cdType === "basic-diff") {
+    discountBaseValue = effectiveBasic + input.difference;
+  } else if (options.cdType === "gross") {
+    discountBaseValue = effectiveBasic + input.difference + input.loading;
+  }
+  const discountAmount = calculateDiscount(toEnginePrecision(discountBaseValue), input.discountPercent);
 
   const taxableValue =
     options.discountBase === "before-gst"

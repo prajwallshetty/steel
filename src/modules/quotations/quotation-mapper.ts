@@ -62,6 +62,7 @@ export function toDomainQuotation(record: QuotationRecord): Quotation {
       basicRateLabel: record.basicRateLabel,
       diaDiffLabel: record.diaDiffLabel,
       payment: record.payment,
+      cdType: record.cdType as any,
       vehicleNo: record.vehicleNo,
     },
     rows: record.rows.map(toDomainRow),

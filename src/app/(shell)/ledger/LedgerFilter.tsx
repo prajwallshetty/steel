@@ -9,15 +9,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 export function LedgerFilter({
   customers,
+  vendors,
 }: {
   readonly customers: readonly { id: string; name: string }[];
+  readonly vendors: readonly { id: string; name: string }[];
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
 
+  const partyType = searchParams.get("partyType") ?? "customer";
   const customerId = searchParams.get("customerId") ?? "";
+  const vendorId = searchParams.get("vendorId") ?? "";
   const from = searchParams.get("from") ?? "";
   const to = searchParams.get("to") ?? "";
 
@@ -33,27 +37,75 @@ export function LedgerFilter({
     });
   };
 
+  const handlePartyTypeChange = (newType: string | null) => {
+    if (!newType) return;
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("partyType", newType);
+    params.delete("customerId");
+    params.delete("vendorId");
+    startTransition(() => {
+      router.replace(`${pathname}?${params.toString()}`);
+    });
+  };
+
   return (
     <div className="flex flex-wrap items-end gap-4">
-      <div className="space-y-1.5 flex-1 min-w-[240px]">
-        <Label htmlFor="customer-select" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Customer
+      {/* Party Type Selector */}
+      <div className="space-y-1.5 min-w-[120px]">
+        <Label htmlFor="party-type" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Type
         </Label>
-        <Select
-          value={customerId}
-          onValueChange={(val) => updateParam("customerId", val ?? "")}
-        >
-          <SelectTrigger id="customer-select">
-            <SelectValue placeholder="Choose customer..." />
+        <Select value={partyType} onValueChange={handlePartyTypeChange}>
+          <SelectTrigger id="party-type">
+            <SelectValue placeholder="Select type..." />
           </SelectTrigger>
           <SelectContent>
-            {customers.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.name}
-              </SelectItem>
-            ))}
+            <SelectItem value="customer">Customer</SelectItem>
+            <SelectItem value="vendor">Vendor</SelectItem>
           </SelectContent>
         </Select>
+      </div>
+
+      {/* Selected Entity Dropdown */}
+      <div className="space-y-1.5 flex-1 min-w-[240px]">
+        <Label htmlFor="party-select" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {partyType === "vendor" ? "Vendor" : "Customer"}
+        </Label>
+        {partyType === "vendor" ? (
+          <Select
+            key="vendor-select"
+            value={vendorId}
+            onValueChange={(val) => updateParam("vendorId", val ?? "")}
+          >
+            <SelectTrigger id="party-select">
+              <SelectValue placeholder="Choose vendor..." />
+            </SelectTrigger>
+            <SelectContent>
+              {vendors.map((v) => (
+                <SelectItem key={v.id} value={v.id}>
+                  {v.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <Select
+            key="customer-select"
+            value={customerId}
+            onValueChange={(val) => updateParam("customerId", val ?? "")}
+          >
+            <SelectTrigger id="party-select">
+              <SelectValue placeholder="Choose customer..." />
+            </SelectTrigger>
+            <SelectContent>
+              {customers.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       <div className="space-y-1.5">

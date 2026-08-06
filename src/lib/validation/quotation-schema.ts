@@ -47,6 +47,7 @@ export const quotationHeaderSchema = z.object({
   brand: z.string().trim().min(1, "Brand is required"),
   basicRateLabel: z.string().trim().min(1, "Basic rate is required"),
   cdPercent: z.number({ invalid_type_error: "CD% must be a number" }).min(0, "CD% cannot be negative").max(100, "CD% cannot exceed 100%").optional().nullable(),
+  cdType: z.enum(["basic", "basic-diff", "gross"]),
   diaDiffLabel: z.string(),
   payment: z.string().trim().min(1, "Payment term is required"),
   vehicleNo: z.string(),

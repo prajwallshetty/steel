@@ -263,6 +263,7 @@ export async function createQuotation(
         basicRateLabel: input.header.basicRateLabel,
         diaDiffLabel: input.header.diaDiffLabel,
         payment: input.header.payment,
+        cdType: input.header.cdType,
         vehicleNo: input.header.vehicleNo,
         remarks: input.remarks,
         grandTotal: new Prisma.Decimal(totals.grandTotal),
@@ -362,6 +363,7 @@ export async function updateQuotation(
         basicRateLabel: input.header.basicRateLabel,
         diaDiffLabel: input.header.diaDiffLabel,
         payment: input.header.payment,
+        cdType: input.header.cdType,
         vehicleNo: input.header.vehicleNo,
         remarks: input.remarks,
         grandTotal: new Prisma.Decimal(totals.grandTotal),
@@ -509,6 +511,7 @@ export async function duplicateQuotation(
       basicRateLabel: source.basicRateLabel,
       diaDiffLabel: source.diaDiffLabel,
       payment: source.payment,
+      cdType: source.cdType as any,
       vehicleNo: "",
     },
     rows: source.rows.map((row) => ({

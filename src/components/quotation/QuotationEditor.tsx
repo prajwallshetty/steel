@@ -442,7 +442,7 @@ function PickerField({
   hint,
   error,
 }: {
-  readonly control: Control<QuotationEditorValues>;
+  readonly control: any;
   readonly name: "branchId" | "customerId" | "assignedToId";
   readonly label: string;
   readonly placeholder: string;
@@ -498,7 +498,7 @@ function PickerField({
 }
 
 interface WatcherProps {
-  readonly control: Control<QuotationEditorValues>;
+  readonly control: any;
   readonly settings: AppSettings;
   readonly meta: QuotationMetadata;
 }

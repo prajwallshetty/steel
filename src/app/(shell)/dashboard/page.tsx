@@ -63,36 +63,29 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       tone: metrics.cashBalance >= 0 ? "text-emerald-600 bg-emerald-500/10" : "text-red-600 bg-red-500/10",
     },
     {
-      label: "Receivables",
-      value: money(metrics.outstandingReceivables),
-      hint: "Owed by customers",
+      label: isFiltered ? "Total Incoming" : "Today's Incoming",
+      value: money(metrics.receiptsToday),
+      hint: isFiltered ? "Incoming funds in period" : "Incoming funds today",
       icon: ArrowUpRight,
-      tone: "text-amber-600 bg-amber-500/10",
+      tone: "text-emerald-600 bg-emerald-500/10",
     },
     {
-      label: "Payables",
-      value: money(metrics.outstandingPayables),
-      hint: "Owed to vendors",
+      label: isFiltered ? "Total Outgoing" : "Today's Outgoing",
+      value: money(metrics.paymentsToday),
+      hint: isFiltered ? "Outgoing payments in period" : "Outgoing payments today",
       icon: ArrowDownLeft,
-      tone: "text-purple-600 bg-purple-500/10",
+      tone: "text-red-600 bg-red-500/10",
     },
   ];
 
   // Row 2: Today's / Period's Actions
   const todayCards = [
     {
-      label: isFiltered ? "Receipts in Period" : "Receipts Today",
-      value: money(metrics.receiptsToday),
-      hint: isFiltered ? "Settled incoming in period" : "Settled incoming today",
-      icon: ArrowUpRight,
-      tone: "text-emerald-700 bg-emerald-500/10",
-    },
-    {
-      label: isFiltered ? "Payments in Period" : "Payments Today",
-      value: money(metrics.paymentsToday),
-      hint: isFiltered ? "Settled outgoing in period" : "Settled outgoing today",
-      icon: ArrowDownLeft,
-      tone: "text-red-700 bg-red-500/10",
+      label: isFiltered ? "Sales in Period" : "Month's Sales",
+      value: money(isFiltered ? metrics.totalRevenue : metrics.monthRevenue),
+      hint: "Approved sales quotations",
+      icon: IndianRupee,
+      tone: "text-blue-600 bg-blue-500/10",
     },
     {
       label: isFiltered ? "Quotations in Period" : "Today's Quotations",
@@ -107,6 +100,13 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       hint: metrics.pendingQuotations > 0 ? "Requires review" : "All cleared",
       icon: FileClock,
       tone: metrics.pendingQuotations > 0 ? "text-red-600 bg-red-500/10" : "text-neutral-500 bg-neutral-500/5",
+    },
+    {
+      label: "Total Customers",
+      value: String(metrics.totalCustomers),
+      hint: "Active customer accounts",
+      icon: Users,
+      tone: "text-indigo-600 bg-indigo-500/10",
     },
   ];
 

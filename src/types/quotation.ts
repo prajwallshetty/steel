@@ -96,6 +96,7 @@ export interface QuotationHeader {
   /** Display text for the DIA DIFF cell, e.g. "6500/5500 +295". */
   readonly diaDiffLabel: string;
   readonly payment: string;
+  readonly cdType: "basic" | "basic-diff" | "gross";
   readonly vehicleNo: string;
 }
 

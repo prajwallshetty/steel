@@ -131,6 +131,36 @@ describe("cash discount", () => {
     expect(result.discountAmount).toBe(0);
     expect(result.rate).toBe(50852.1);
   });
+
+  it("calculates discount on basic rate only", () => {
+    const result = calculateRow(row, {
+      discountBase: "before-gst",
+      highlighted: false,
+      cdType: "basic",
+    });
+    // 36300 * 1.5% = 544.5
+    expect(result.discountAmount).toBe(544.5);
+  });
+
+  it("calculates discount on basic + difference", () => {
+    const result = calculateRow(row, {
+      discountBase: "before-gst",
+      highlighted: false,
+      cdType: "basic-diff",
+    });
+    // (36300 + 6500) * 1.5% = 42800 * 1.5% = 642
+    expect(result.discountAmount).toBe(642);
+  });
+
+  it("calculates discount on gross rate (basic + difference + loading)", () => {
+    const result = calculateRow(row, {
+      discountBase: "before-gst",
+      highlighted: false,
+      cdType: "gross",
+    });
+    // (36300 + 6500 + 295) * 1.5% = 43095 * 1.5% = 646.425
+    expect(result.discountAmount).toBe(646.425);
+  });
 });
 
 describe("settings drive the engine rather than constants", () => {

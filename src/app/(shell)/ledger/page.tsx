@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Role } from "@prisma/client";
-import { BookOpen, Users, Printer } from "lucide-react";
+import { BookOpen, Users, Printer, Building } from "lucide-react";
 import { requireAnyPermission } from "@/modules/auth/guard";
 import { PERMISSIONS } from "@/modules/permissions/permissions";
 import { listSelectableCustomers } from "@/modules/customers/customer-service";
-import { getCustomerLedger } from "@/modules/receipt-payment/receipt-service";
+import { listSelectableVendors } from "@/modules/vendors/vendor-service";
+import { getCustomerLedger, getVendorLedger } from "@/modules/receipt-payment/receipt-service";
 import { getSettings } from "@/modules/settings/settings-service";
 import { formatListDate, formatMoney } from "@/lib/format/number";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,7 +14,7 @@ import { PageHeading } from "@/components/layout/PageHeading";
 import { LedgerFilter } from "./LedgerFilter";
 import { Button } from "@/components/ui/button";
 
-export const metadata: Metadata = { title: "Customer Ledger" };
+export const metadata: Metadata = { title: "Ledger Accounts" };
 export const dynamic = "force-dynamic";
 
 const VIEW_PERMISSIONS = [
@@ -30,21 +31,35 @@ export default async function CustomerLedgerPage({ searchParams }: PageProps) {
   const user = await requireAnyPermission(VIEW_PERMISSIONS);
   const params = await searchParams;
 
-  const [customers, settings] = await Promise.all([
+  const [customers, vendors, settings] = await Promise.all([
     listSelectableCustomers(user, user.branchId ?? undefined),
+    listSelectableVendors(user, user.branchId ?? undefined),
     getSettings(user.branchId),
   ]);
 
   const grouping = settings.display.numberGrouping;
   const money = (value: number) => formatMoney(value, grouping);
 
+  const partyType = params.partyType ?? "customer";
   const selectedCustomerId = params.customerId;
-  const selectedCustomer = selectedCustomerId
-    ? customers.find((c) => c.id === selectedCustomerId)
-    : null;
+  const selectedVendorId = params.vendorId;
 
   let ledger = null;
-  if (selectedCustomerId) {
+  let isSelected = false;
+
+  if (partyType === "vendor" && selectedVendorId) {
+    isSelected = true;
+    try {
+      ledger = await getVendorLedger(user, selectedVendorId, {
+        from: params.from,
+        to: params.to,
+        branchId: user.branchId ?? undefined,
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  } else if (partyType === "customer" && selectedCustomerId) {
+    isSelected = true;
     try {
       ledger = await getCustomerLedger(user, selectedCustomerId, {
         from: params.from,
@@ -52,27 +67,25 @@ export default async function CustomerLedgerPage({ searchParams }: PageProps) {
         branchId: user.branchId ?? undefined,
       });
     } catch (e) {
-      // Gracefully handle not found or authorization issues
       console.error(e);
     }
   }
 
+  const printHref = partyType === "vendor"
+    ? `/ledger/print?vendorId=${selectedVendorId}&partyType=vendor${params.from ? `&from=${params.from}` : ""}${params.to ? `&to=${params.to}` : ""}`
+    : `/ledger/print?customerId=${selectedCustomerId}&partyType=customer${params.from ? `&from=${params.from}` : ""}${params.to ? `&to=${params.to}` : ""}`;
+
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6">
       <PageHeading
-        title="Customer Ledger"
-        description="View the consolidated financial history of a customer, including invoices, receipts, and refunds."
+        title="Ledger Statement"
+        description="View the consolidated financial history of a customer or vendor, including invoices, payments, and receipts."
         actions={
-          selectedCustomerId ? (
+          isSelected && (selectedCustomerId || selectedVendorId) ? (
             <Button
               variant="outline"
               size="sm"
-              render={
-                <Link
-                  href={`/ledger/print?customerId=${selectedCustomerId}${params.from ? `&from=${params.from}` : ""}${params.to ? `&to=${params.to}` : ""}`}
-                  target="_blank"
-                />
-              }
+              render={<Link href={printHref} target="_blank" />}
             >
               <Printer className="size-4 mr-1.5" />
               Print Statement
@@ -83,18 +96,30 @@ export default async function CustomerLedgerPage({ searchParams }: PageProps) {
 
       <Card>
         <CardContent className="py-4">
-          <LedgerFilter customers={customers} />
+          <LedgerFilter customers={customers} vendors={vendors} />
         </CardContent>
       </Card>
 
-      {!ledger ? (
+      {!isSelected ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-16 text-center text-muted-foreground">
             <Users className="size-12 text-muted-foreground/60" />
             <div>
-              <p className="font-semibold text-lg text-foreground">No customer selected</p>
+              <p className="font-semibold text-lg text-foreground">No account selected</p>
               <p className="text-sm">
-                Select a customer from the dropdown above to view their financial ledger.
+                Select a customer or vendor from the filters above to view their financial ledger.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : !ledger ? (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 py-16 text-center text-muted-foreground">
+            <Users className="size-12 text-muted-foreground/60" />
+            <div>
+              <p className="font-semibold text-lg text-foreground">Account not found</p>
+              <p className="text-sm">
+                The selected customer or vendor was not found or is outside of your scope.
               </p>
             </div>
           </CardContent>
@@ -116,7 +141,7 @@ export default async function CustomerLedgerPage({ searchParams }: PageProps) {
             <Card className="bg-card">
               <CardContent className="p-4">
                 <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
-                  Total Debits (Sales)
+                  {partyType === "vendor" ? "Total Payments (-)" : "Total Debits (+)"}
                 </p>
                 <p className="text-xl font-bold tabular-nums text-red-600 mt-1">
                   {money(ledger.totalDebit)}
@@ -127,7 +152,7 @@ export default async function CustomerLedgerPage({ searchParams }: PageProps) {
             <Card className="bg-card">
               <CardContent className="p-4">
                 <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
-                  Total Credits (Receipts)
+                  {partyType === "vendor" ? "Total Bills (+)" : "Total Credits (-)"}
                 </p>
                 <p className="text-xl font-bold tabular-nums text-emerald-600 mt-1">
                   {money(ledger.totalCredit)}
@@ -138,7 +163,7 @@ export default async function CustomerLedgerPage({ searchParams }: PageProps) {
             <Card className="bg-card border-2 border-primary/20 bg-primary/5">
               <CardContent className="p-4">
                 <p className="text-xs uppercase tracking-wide text-primary font-semibold">
-                  Outstanding Balance
+                  {partyType === "vendor" ? "Net Payable" : "Net Outstanding"}
                 </p>
                 <p className="text-2xl font-black tabular-nums text-foreground mt-1">
                   {money(ledger.closingBalance)}
@@ -205,7 +230,7 @@ export default async function CustomerLedgerPage({ searchParams }: PageProps) {
                         <td className="px-4 py-3">
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
-                              row.type === "INVOICE"
+                              row.type === "INVOICE" || row.type === "BILL"
                                 ? "bg-blue-100 text-blue-700 border-blue-200"
                                 : row.type === "RECEIPT"
                                 ? "bg-emerald-100 text-emerald-700 border-emerald-200"

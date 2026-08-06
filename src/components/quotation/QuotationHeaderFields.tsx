@@ -8,8 +8,8 @@ import { ComboInput } from "@/components/ui/combo-input";
 import type { QuotationDraftInput } from "@/lib/validation/quotation-schema";
 
 interface QuotationHeaderFieldsProps {
-  readonly control: Control<QuotationDraftInput>;
-  readonly errors: FieldErrors<QuotationDraftInput>;
+  readonly control: any;
+  readonly errors: any;
   readonly settings: AppSettings;
   readonly disabled?: boolean;
 }
@@ -175,6 +175,30 @@ export function QuotationHeaderFields({
               disabled={disabled}
               placeholder="1.5"
             />
+          )}
+        />
+      </Field>
+
+      <Field
+        label="CD Type"
+        error={headerErrors?.cdType?.message}
+        hint="Cash discount base rate calculation"
+      >
+        <Controller
+          control={control}
+          name="header.cdType"
+          render={({ field }) => (
+            <select
+              value={field.value ?? "basic-diff"}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              disabled={disabled}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <option value="basic-diff">Basic + Dia Diff (Default)</option>
+              <option value="basic">Basic Rate Only</option>
+              <option value="gross">Basic + Dia Diff + Loading</option>
+            </select>
           )}
         />
       </Field>

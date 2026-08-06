@@ -624,3 +624,150 @@ export async function getDistinctOtherReceipts(subject: ScopeSubject): Promise<s
 
   return Array.from(new Set(names)).sort();
 }
+
+// Vendor Ledger Details
+export async function getVendorLedger(
+  subject: ScopeSubject,
+  vendorId: string,
+  filters: { readonly from?: string; readonly to?: string; readonly branchId?: string } = {},
+): Promise<any> {
+  const vendor = await prisma.vendor.findFirst({
+    where: { id: vendorId, ...NOT_DELETED },
+    include: { branch: { select: { name: true } } },
+  });
+  if (!vendor) throw new RecordNotFoundError("Vendor");
+
+  const branchCond = filters.branchId ? { branchId: filters.branchId } : {};
+
+  // Compute opening balance prior to filters.from
+  let priorDebit = 0; // paid to vendor
+  let priorCredit = 0; // billed by vendor
+
+  if (filters.from) {
+    const priorBills = await prisma.vendorBill.aggregate({
+      _sum: { amount: true },
+      where: {
+        AND: [
+          { vendorName: vendor.name },
+          branchCond,
+          { deletedAt: null },
+          { billDate: { lt: new Date(filters.from) } },
+        ],
+      },
+    });
+    priorCredit += Number(priorBills._sum?.amount ?? 0);
+
+    const priorLedger = await prisma.cashLedgerEntry.findMany({
+      where: {
+        AND: [
+          { vendorId },
+          branchCond,
+          { status: { in: [...SETTLED] } },
+          { deletedAt: null },
+          { entryDate: { lt: new Date(filters.from) } },
+        ],
+      },
+      select: { amount: true, direction: true },
+    });
+
+    priorLedger.forEach((entry) => {
+      if (entry.direction === LedgerDirection.DEBIT) {
+        priorDebit += Number(entry.amount);
+      } else {
+        priorCredit += Number(entry.amount);
+      }
+    });
+  }
+
+  const openingBalance = priorCredit - priorDebit;
+
+  // Fetch bills inside the period
+  const bills = await prisma.vendorBill.findMany({
+    where: {
+      AND: [
+        { vendorName: vendor.name },
+        branchCond,
+        { deletedAt: null },
+        filters.from ? { billDate: { gte: new Date(filters.from) } } : {},
+        filters.to ? { billDate: { lte: new Date(filters.to) } } : {},
+      ],
+    },
+  });
+
+  // Fetch ledger entries inside the period
+  const ledgerEntries = await prisma.cashLedgerEntry.findMany({
+    where: {
+      AND: [
+        { vendorId },
+        branchCond,
+        { status: { in: [...SETTLED] } },
+        { deletedAt: null },
+        filters.from ? { entryDate: { gte: new Date(filters.from) } } : {},
+        filters.to ? { entryDate: { lte: new Date(filters.to) } } : {},
+      ],
+    },
+  });
+
+  const ledgerItems: any[] = [];
+
+  bills.forEach((bill) => {
+    ledgerItems.push({
+      id: bill.id,
+      date: bill.billDate.toISOString().slice(0, 10),
+      voucherNo: bill.billNumber,
+      description: `Purchase Bill`,
+      debit: 0,
+      credit: Number(bill.amount),
+      type: "BILL",
+    });
+  });
+
+  ledgerEntries.forEach((entry) => {
+    if (entry.direction === LedgerDirection.DEBIT) {
+      ledgerItems.push({
+        id: entry.id,
+        date: entry.entryDate.toISOString().slice(0, 10),
+        voucherNo: entry.reference,
+        description: entry.particular,
+        debit: Number(entry.amount),
+        credit: 0,
+        type: "PAYMENT",
+      });
+    } else {
+      ledgerItems.push({
+        id: entry.id,
+        date: entry.entryDate.toISOString().slice(0, 10),
+        voucherNo: entry.reference,
+        description: entry.particular,
+        debit: 0,
+        credit: Number(entry.amount),
+        type: "RECEIPT",
+      });
+    }
+  });
+
+  ledgerItems.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  let balance = openingBalance;
+  let periodDebit = 0;
+  let periodCredit = 0;
+
+  const rows = ledgerItems.map((item) => {
+    balance += item.credit - item.debit;
+    periodDebit += item.debit;
+    periodCredit += item.credit;
+    return {
+      ...item,
+      balance,
+    };
+  });
+
+  return {
+    vendorName: vendor.name,
+    openingBalance,
+    closingBalance: balance,
+    totalDebit: periodDebit,
+    totalCredit: periodCredit,
+    rows,
+  };
+}

@@ -260,7 +260,11 @@ async function gstReport(
             gstPercent: Number(row.gstPercent),
             highlight: row.highlight,
           },
-          { discountBase: "before-gst", highlighted: false },
+          {
+            discountBase: "before-gst",
+            highlighted: false,
+            cdType: quotation.cdType as any,
+          },
         );
         taxable += calculated.taxableValue * calculated.quantity;
         gst += calculated.gstAmount * calculated.quantity;

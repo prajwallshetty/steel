@@ -22,6 +22,7 @@ export const REFERENCE_QUOTATION: Quotation = {
     basicRateLabel: "40300-4000-R",
     diaDiffLabel: "6500/5500 +295",
     payment: "REGULER",
+    cdType: "basic-diff",
     vehicleNo: "",
   },
   rows: [

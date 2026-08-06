@@ -2,7 +2,8 @@ const CACHE_NAME = "steel-ledger-v1";
 const ASSETS_TO_CACHE = [
   "/",
   "/manifest.json",
-  "/globe.svg"
+  "/icon-192.png",
+  "/icon-512.png"
 ];
 
 self.addEventListener("install", (event) => {

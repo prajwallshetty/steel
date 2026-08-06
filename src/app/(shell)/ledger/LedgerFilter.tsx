@@ -57,7 +57,9 @@ export function LedgerFilter({
         </Label>
         <Select value={partyType} onValueChange={handlePartyTypeChange}>
           <SelectTrigger id="party-type">
-            <SelectValue placeholder="Select type..." />
+            <SelectValue placeholder="Select type...">
+              {() => partyType === "vendor" ? "Vendor" : "Customer"}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="customer">Customer</SelectItem>
@@ -78,7 +80,9 @@ export function LedgerFilter({
             onValueChange={(val) => updateParam("vendorId", val ?? "")}
           >
             <SelectTrigger id="party-select">
-              <SelectValue placeholder="Choose vendor..." />
+              <SelectValue placeholder="Choose vendor...">
+                {() => vendors.find((v) => v.id === vendorId)?.name || "Choose vendor..."}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {vendors.map((v) => (
@@ -95,7 +99,9 @@ export function LedgerFilter({
             onValueChange={(val) => updateParam("customerId", val ?? "")}
           >
             <SelectTrigger id="party-select">
-              <SelectValue placeholder="Choose customer..." />
+              <SelectValue placeholder="Choose customer...">
+                {() => customers.find((c) => c.id === customerId)?.name || "Choose customer..."}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {customers.map((c) => (

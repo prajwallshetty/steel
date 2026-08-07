@@ -117,12 +117,14 @@ function getColumnFlex(key: string): number {
     case "branch":
       return 2.2;
     case "reference":
+    case "referenceNo":
+      return 1.8;
     case "date":
+      return 1.6;
     case "status":
     case "code":
     case "method":
-    case "referenceNo":
-      return 1.1;
+      return 1.2;
     default:
       return 1.4;
   }

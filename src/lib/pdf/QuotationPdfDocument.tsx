@@ -10,75 +10,211 @@ import {
 import type { CalculatedQuotation, CalculatedRow } from "@/types/quotation";
 import type { AppSettings } from "@/types/settings";
 import {
-  COLUMNS,
-  HEADER_ROWS,
-  PAGE,
-  ROW_HEIGHT_MM,
-  SHEET_COLORS,
-  SHEET_FONT_PT,
-  CONTENT_WIDTH_MM,
-  mmToPt,
-  type HeaderCellSpec,
-} from "@/lib/template/sheet-template";
-import {
   formatMoney,
   formatPercent,
   formatQuantity,
   formatSheetDate,
 } from "@/lib/format/number";
 
-/**
- * The A4-landscape vector PDF.
- *
- * Drawn as real PDF primitives — filled rectangles, stroked rules and embedded
- * text — so the output stays selectable, searchable and sharp at any zoom.
- * There is no canvas or image rasterisation anywhere in this path.
- *
- * Geometry is derived from the same millimetre constants the HTML sheet uses,
- * converted to PDF points, so preview and print cannot drift apart.
- */
-
-const BORDER = mmToPt(0.25);
-const CELL_PADDING = mmToPt(1.4);
-
-/** Column widths in points, summing to the printable content width. */
-const COLUMN_WIDTHS_PT = COLUMNS.map((column) =>
-  mmToPt(column.share * CONTENT_WIDTH_MM),
-);
-
 const styles = StyleSheet.create({
   page: {
-    paddingTop: mmToPt(PAGE.marginMm),
-    paddingBottom: mmToPt(PAGE.marginMm),
-    paddingLeft: mmToPt(PAGE.marginMm),
-    paddingRight: mmToPt(PAGE.marginMm),
-    backgroundColor: SHEET_COLORS.white,
-    // Helvetica is one of the PDF standard-14 fonts: no embedding, no
-    // rasterisation, and metrically close to the workbook's Calibri.
+    padding: 36,
+    backgroundColor: "#ffffff",
     fontFamily: "Helvetica",
-    color: SHEET_COLORS.text,
+    color: "#27272a", // text-zinc-800
+    flexDirection: "column",
   },
-  grid: {
-    borderTopWidth: BORDER,
-    borderLeftWidth: BORDER,
-    borderColor: SHEET_COLORS.border,
-    borderStyle: "solid",
-  },
-  row: {
+  header: {
     flexDirection: "row",
+    justifyContent: "space-between",
+    borderBottomWidth: 1.5,
+    borderBottomColor: "#18181b", // border-zinc-900
+    paddingBottom: 12,
+    marginBottom: 16,
   },
-  cell: {
-    borderRightWidth: BORDER,
-    borderBottomWidth: BORDER,
-    borderColor: SHEET_COLORS.border,
-    borderStyle: "solid",
-    paddingHorizontal: CELL_PADDING,
-    justifyContent: "center",
+  brandSection: {
+    flexDirection: "column",
   },
-  note: {
-    marginTop: mmToPt(1.2),
-    fontSize: SHEET_FONT_PT.note,
-    fontFamily: "Helvetica-Oblique",
+  companyName: {
+    fontSize: 20,
+    fontFamily: "Helvetica-Bold",
+    color: "#0f172a", // slate-900
+    letterSpacing: -0.5,
+  },
+  companySub: {
+    fontSize: 8.5,
+    color: "#6b7280", // text-gray-500
+    marginTop: 2,
+    fontFamily: "Helvetica-Bold",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  docDetails: {
+    flexDirection: "column",
+    alignItems: "flex-end",
+  },
+  docTitle: {
+    fontSize: 16,
+    fontFamily: "Helvetica-Bold",
+    color: "#0f172a",
+  },
+  docRef: {
+    fontSize: 8.5,
+    fontFamily: "Helvetica-Bold",
+    color: "#3b82f6", // blue-500
+    marginTop: 3,
+  },
+  metaSection: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 16,
+    gap: 16,
+  },
+  metaCol: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#e4e4e7", // zinc-200
+    borderRadius: 6,
+    padding: 10,
+    backgroundColor: "#fafafa",
+  },
+  metaHeading: {
+    fontSize: 8,
+    fontFamily: "Helvetica-Bold",
+    color: "#71717a", // zinc-500
+    borderBottomWidth: 1,
+    borderBottomColor: "#e4e4e7",
+    paddingBottom: 4,
+    marginBottom: 6,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  metaRow: {
+    flexDirection: "row",
+    marginBottom: 3.5,
+    fontSize: 8.5,
+    lineHeight: 1.25,
+  },
+  metaLabel: {
+    width: "35%",
+    color: "#71717a",
+    fontFamily: "Helvetica-Bold",
+  },
+  metaValue: {
+    width: "65%",
+    color: "#18181b",
+  },
+  table: {
+    borderWidth: 1,
+    borderColor: "#e4e4e7",
+    borderRadius: 6,
+    overflow: "hidden",
+    marginBottom: 16,
+  },
+  tableHeader: {
+    flexDirection: "row",
+    backgroundColor: "#18181b", // zinc-900
+    paddingVertical: 7,
+    paddingHorizontal: 8,
+    alignItems: "center",
+  },
+  tableRow: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e4e4e7",
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    alignItems: "center",
+  },
+  tableRowAlt: {
+    backgroundColor: "#fcfcfc",
+  },
+  th: {
+    fontSize: 7.5,
+    fontFamily: "Helvetica-Bold",
+    color: "#ffffff",
+  },
+  td: {
+    fontSize: 7.5,
+    color: "#27272a",
+  },
+  colSize: { width: "12%", textAlign: "left" },
+  colQty: { width: "12%", textAlign: "right" },
+  colBasic: { width: "13%", textAlign: "right" },
+  colDiff: { width: "15%", textAlign: "right" },
+  colDiscount: { width: "12%", textAlign: "right" },
+  colGst: { width: "11%", textAlign: "right" },
+  colRate: { width: "12%", textAlign: "right" },
+  colTotal: { width: "13%", textAlign: "right" },
+
+  bottomSection: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 16,
+    marginTop: 4,
+  },
+  remarksCol: {
+    width: "55%",
+    borderWidth: 1,
+    borderColor: "#e4e4e7",
+    borderRadius: 6,
+    padding: 10,
+    backgroundColor: "#fafafa",
+  },
+  remarksTitle: {
+    fontSize: 8,
+    fontFamily: "Helvetica-Bold",
+    color: "#71717a",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e4e4e7",
+    paddingBottom: 4,
+    marginBottom: 6,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  remarksText: {
+    fontSize: 8,
+    color: "#3f3f46",
+    lineHeight: 1.35,
+  },
+  summaryCol: {
+    width: "40%",
+    borderWidth: 1,
+    borderColor: "#e4e4e7",
+    borderRadius: 6,
+    padding: 10,
+    backgroundColor: "#fafafa",
+    alignSelf: "flex-start",
+  },
+  summaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 3,
+    fontSize: 8.5,
+  },
+  summaryRowTotal: {
+    borderTopWidth: 1,
+    borderTopColor: "#e4e4e7",
+    paddingTop: 5,
+    marginTop: 5,
+    fontSize: 9.5,
+    fontFamily: "Helvetica-Bold",
+    color: "#0f172a",
+  },
+  footer: {
+    position: "absolute",
+    bottom: 24,
+    left: 36,
+    right: 36,
+    borderTopWidth: 1,
+    borderTopColor: "#f4f4f5", // zinc-100
+    paddingTop: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  footerText: {
+    fontSize: 7,
+    color: "#a1a1aa", // zinc-400
   },
 });
 
@@ -95,30 +231,6 @@ export function QuotationPdfDocument({
   const grouping = settings.display.numberGrouping;
   const money = (value: number) => formatMoney(value, grouping);
 
-  const headerValues: Record<NonNullable<HeaderCellSpec["field"]>, string> = {
-    date: formatSheetDate(header.date),
-    location: header.location,
-    partyName: header.partyName,
-    brand: header.brand,
-    basicRateLabel: header.basicRateLabel,
-    diaDiffLabel: header.diaDiffLabel,
-    payment: header.payment,
-    vehicleNo: header.vehicleNo,
-  };
-
-  const columnHeadings = [
-    "SIZES",
-    "QUANTITY",
-    "BASIC",
-    "DIFF+ LDG",
-    `${formatPercent(settings.pricing.nominalDiscountPercent)} CD`,
-    `${formatPercent(settings.pricing.gstPercent)} GST`,
-    "RATE",
-    "TOTAL",
-  ];
-
-  const fullWidth = COLUMN_WIDTHS_PT.reduce((sum, width) => sum + width, 0);
-
   return (
     <Document
       title={`${quotation.reference} — ${header.partyName}`}
@@ -126,189 +238,188 @@ export function QuotationPdfDocument({
       subject={`${header.title} quotation for ${header.partyName}`}
       creator="Steel Quotation System"
     >
-      <Page size="A4" orientation="landscape" style={styles.page}>
-        <View style={styles.grid}>
-          {/* Title band */}
-          <View style={[styles.row, { height: mmToPt(ROW_HEIGHT_MM.title) }]}>
-            <Cell
-              width={fullWidth}
-              text={header.title}
-              align="left"
-              bold
-              fontSize={SHEET_FONT_PT.title}
-            />
+      <Page size="A4" style={styles.page}>
+        {/* Document Header */}
+        <View style={styles.header}>
+          <View style={styles.brandSection}>
+            <Text style={styles.companyName}>Steel ERP</Text>
+            <Text style={styles.companySub}>Quotation Document</Text>
           </View>
-
-          {/* Merged header block */}
-          {HEADER_ROWS.map((cells, rowIndex) => (
-            <View
-              key={`header-${rowIndex}`}
-              style={[styles.row, { height: mmToPt(ROW_HEIGHT_MM.header) }]}
-            >
-              {cells.map((cell, cellIndex) => (
-                <Cell
-                  key={`header-${rowIndex}-${cellIndex}`}
-                  width={spanWidth(cells, cellIndex)}
-                  text={
-                    cell.kind === "label"
-                      ? (cell.text ?? "")
-                      : headerValues[
-                          cell.field as NonNullable<HeaderCellSpec["field"]>
-                        ]
-                  }
-                  align={cell.align}
-                  bold={cell.kind === "label"}
-                  fill={cell.fill}
-                  fontSize={SHEET_FONT_PT.header}
-                />
-              ))}
-            </View>
-          ))}
-
-          {/* Column headings */}
-          <View style={[styles.row, { height: mmToPt(ROW_HEIGHT_MM.tableHead) }]}>
-            {columnHeadings.map((heading, index) => (
-              <Cell
-                key={COLUMNS[index].key}
-                width={COLUMN_WIDTHS_PT[index]}
-                text={heading}
-                align="center"
-                bold
-                fill={SHEET_COLORS.amber}
-                fontSize={SHEET_FONT_PT.tableHead}
-              />
-            ))}
-          </View>
-
-          {/* Material rows */}
-          {rows.map((row) => (
-            <PdfRow key={row.id} row={row} money={money} />
-          ))}
-
-          {/* Totals */}
-          <View style={[styles.row, { height: mmToPt(ROW_HEIGHT_MM.total) }]}>
-            <Cell width={COLUMN_WIDTHS_PT[0]} text="TOTAL" align="center" bold />
-            <Cell
-              width={COLUMN_WIDTHS_PT[1]}
-              text={formatQuantity(totals.totalQuantity)}
-              align="center"
-              bold
-            />
-            <Cell width={COLUMN_WIDTHS_PT[2]} text="" align="center" />
-            <Cell width={COLUMN_WIDTHS_PT[3]} text="" align="center" />
-            <Cell width={COLUMN_WIDTHS_PT[4]} text="" align="center" />
-            <Cell width={COLUMN_WIDTHS_PT[5]} text="" align="center" />
-            <Cell width={COLUMN_WIDTHS_PT[6]} text="TOTAL" align="center" bold />
-            <Cell
-              width={COLUMN_WIDTHS_PT[7]}
-              text={money(totals.grandTotal)}
-              align="center"
-              bold
-              color={SHEET_COLORS.danger}
-            />
+          <View style={styles.docDetails}>
+            <Text style={styles.docTitle}>{header.title || "Sales Quotation"}</Text>
+            <Text style={styles.docRef}>Ref: {quotation.reference}</Text>
           </View>
         </View>
 
-        <Text style={styles.note}>NOTE: {remarks}</Text>
+        {/* Info Metadata Grid */}
+        <View style={styles.metaSection}>
+          {/* Client Info */}
+          <View style={styles.metaCol}>
+            <Text style={styles.metaHeading}>Client Details</Text>
+            <View style={styles.metaRow}>
+              <Text style={styles.metaLabel}>Party Name:</Text>
+              <Text style={styles.metaValue}>{header.partyName}</Text>
+            </View>
+            <View style={styles.metaRow}>
+              <Text style={styles.metaLabel}>Location:</Text>
+              <Text style={styles.metaValue}>{header.location}</Text>
+            </View>
+            <View style={styles.metaRow}>
+              <Text style={styles.metaLabel}>Payment:</Text>
+              <Text style={styles.metaValue}>{header.payment || "—"}</Text>
+            </View>
+          </View>
+
+          {/* Delivery & Specifications */}
+          <View style={styles.metaCol}>
+            <Text style={styles.metaHeading}>Statement Info</Text>
+            <View style={styles.metaRow}>
+              <Text style={styles.metaLabel}>Date:</Text>
+              <Text style={styles.metaValue}>{formatSheetDate(header.date)}</Text>
+            </View>
+            <View style={styles.metaRow}>
+              <Text style={styles.metaLabel}>Brand:</Text>
+              <Text style={styles.metaValue}>{header.brand || "—"}</Text>
+            </View>
+            <View style={styles.metaRow}>
+              <Text style={styles.metaLabel}>Vehicle No:</Text>
+              <Text style={styles.metaValue}>{header.vehicleNo || "—"}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Line Items Table */}
+        <View style={styles.table}>
+          {/* Table Header Row */}
+          <View style={styles.tableHeader}>
+            <Text style={[styles.th, styles.colSize]}>Size</Text>
+            <Text style={[styles.th, styles.colQty]}>Qty (MT)</Text>
+            <Text style={[styles.th, styles.colBasic]}>Basic Rate</Text>
+            <Text style={[styles.th, styles.colDiff]}>Dia Diff+Ldg</Text>
+            <Text style={[styles.th, styles.colDiscount]}>
+              CD ({formatPercent(settings.pricing.nominalDiscountPercent)})
+            </Text>
+            <Text style={[styles.th, styles.colGst]}>
+              GST ({formatPercent(settings.pricing.gstPercent)})
+            </Text>
+            <Text style={[styles.th, styles.colRate]}>Net Rate</Text>
+            <Text style={[styles.th, styles.colTotal]}>Total Amount</Text>
+          </View>
+
+          {/* Body Rows */}
+          {rows.map((row, index) => {
+            const isAlt = index % 2 === 1;
+            const rowStyle = isAlt ? [styles.tableRow, styles.tableRowAlt] : styles.tableRow;
+            return (
+              <View key={row.id} style={rowStyle}>
+                <Text style={[styles.td, styles.colSize, { fontFamily: "Helvetica-Bold" }]}>
+                  {row.size}
+                </Text>
+                <Text style={[styles.td, styles.colQty]}>
+                  {formatQuantity(row.quantity)}
+                </Text>
+                <Text style={[styles.td, styles.colBasic]}>
+                  {money(row.basic)}
+                </Text>
+                <Text style={[styles.td, styles.colDiff]}>
+                  {money(row.differencePlusLoading)}
+                </Text>
+                <Text style={[styles.td, styles.colDiscount]}>
+                  {money(row.discountAmount)}
+                </Text>
+                <Text style={[styles.td, styles.colGst]}>
+                  {money(row.gstAmount)}
+                </Text>
+                <Text style={[styles.td, styles.colRate, { fontFamily: "Helvetica-Bold" }]}>
+                  {money(row.rate)}
+                </Text>
+                <Text style={[styles.td, styles.colTotal, { fontFamily: "Helvetica-Bold" }]}>
+                  {money(row.total)}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+
+        {/* Bottom Section */}
+        <View style={styles.bottomSection}>
+          {/* Remarks & Notes */}
+          <View style={styles.remarksCol}>
+            <Text style={styles.remarksTitle}>Remarks & Reference Rates</Text>
+            {header.basicRateLabel ? (
+              <View style={{ marginBottom: 4 }}>
+                <Text style={[styles.remarksText, { fontFamily: "Helvetica-Bold" }]}>
+                  Basic Rate Ref:
+                </Text>
+                <Text style={styles.remarksText}>{header.basicRateLabel}</Text>
+              </View>
+            ) : null}
+            {header.diaDiffLabel ? (
+              <View style={{ marginBottom: 4 }}>
+                <Text style={[styles.remarksText, { fontFamily: "Helvetica-Bold" }]}>
+                  Dia Difference Ref:
+                </Text>
+                <Text style={styles.remarksText}>{header.diaDiffLabel}</Text>
+              </View>
+            ) : null}
+            {remarks ? (
+              <View style={{ marginTop: 4 }}>
+                <Text style={[styles.remarksText, { fontFamily: "Helvetica-Bold" }]}>
+                  Notes:
+                </Text>
+                <Text style={styles.remarksText}>{remarks}</Text>
+              </View>
+            ) : null}
+          </View>
+
+          {/* Totals Summary */}
+          <View style={styles.summaryCol}>
+            <Text style={styles.remarksTitle}>Summary</Text>
+            <View style={styles.summaryRow}>
+              <Text style={{ color: "#71717a" }}>Total Weight:</Text>
+              <Text style={{ fontFamily: "Helvetica-Bold" }}>
+                {formatQuantity(totals.totalQuantity)} MT
+              </Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={{ color: "#71717a" }}>Total Base Value:</Text>
+              <Text>
+                {money(
+                  rows.reduce((sum, r) => sum + r.quantity * (r.basic + r.differencePlusLoading), 0)
+                )}
+              </Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={{ color: "#71717a" }}>Cash Discount:</Text>
+              <Text style={{ color: "#dc2626" }}>
+                -{money(totals.totalDiscount)}
+              </Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={{ color: "#71717a" }}>GST Amount:</Text>
+              <Text>+{money(totals.totalGst)}</Text>
+            </View>
+            <View style={[styles.summaryRow, styles.summaryRowTotal]}>
+              <Text>Grand Total:</Text>
+              <Text>{money(totals.grandTotal)}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Footer */}
+        <View style={styles.footer} fixed>
+          <Text style={styles.footerText}>
+            Generated by Steel ERP Statement System
+          </Text>
+          <Text
+            style={styles.footerText}
+            render={({ pageNumber, totalPages }) =>
+              `Page ${pageNumber} of ${totalPages}`
+            }
+          />
+        </View>
       </Page>
     </Document>
   );
 }
 
-function PdfRow({
-  row,
-  money,
-}: {
-  readonly row: CalculatedRow;
-  readonly money: (value: number) => string;
-}) {
-  const highlight = row.isHighlighted ? SHEET_COLORS.green : undefined;
-  const height = mmToPt(ROW_HEIGHT_MM.data);
-
-  return (
-    <View style={[styles.row, { height }]}>
-      <Cell
-        width={COLUMN_WIDTHS_PT[0]}
-        text={row.size}
-        align="center"
-        bold
-        fill={highlight}
-      />
-      <Cell
-        width={COLUMN_WIDTHS_PT[1]}
-        text={formatQuantity(row.quantity)}
-        align="center"
-      />
-      <Cell width={COLUMN_WIDTHS_PT[2]} text={money(row.basic)} align="center" />
-      <Cell
-        width={COLUMN_WIDTHS_PT[3]}
-        text={money(row.differencePlusLoading)}
-        align="center"
-        fill={highlight}
-      />
-      <Cell
-        width={COLUMN_WIDTHS_PT[4]}
-        text={money(row.discountAmount)}
-        align="center"
-      />
-      <Cell
-        width={COLUMN_WIDTHS_PT[5]}
-        text={money(row.gstAmount)}
-        align="center"
-      />
-      <Cell
-        width={COLUMN_WIDTHS_PT[6]}
-        text={money(row.rate)}
-        align="center"
-        bold
-      />
-      <Cell width={COLUMN_WIDTHS_PT[7]} text={money(row.total)} align="center" />
-    </View>
-  );
-}
-
-interface CellProps {
-  readonly width: number;
-  readonly text: string;
-  readonly align: "left" | "center";
-  readonly bold?: boolean;
-  readonly fill?: string;
-  readonly color?: string;
-  readonly fontSize?: number;
-}
-
-function Cell({
-  width,
-  text,
-  align,
-  bold = false,
-  fill,
-  color,
-  fontSize = SHEET_FONT_PT.data,
-}: CellProps) {
-  return (
-    <View style={[styles.cell, { width, backgroundColor: fill }]}>
-      <Text
-        style={{
-          fontFamily: bold ? "Helvetica-Bold" : "Helvetica",
-          fontSize,
-          textAlign: align,
-          color: color ?? SHEET_COLORS.text,
-        }}
-      >
-        {text}
-      </Text>
-    </View>
-  );
-}
-
-/** Width of a merged header cell: the sum of the columns it spans. */
-function spanWidth(cells: readonly HeaderCellSpec[], index: number): number {
-  const offset = cells
-    .slice(0, index)
-    .reduce((sum, cell) => sum + cell.span, 0);
-  return COLUMN_WIDTHS_PT.slice(offset, offset + cells[index].span).reduce(
-    (sum, width) => sum + width,
-    0,
-  );
-}

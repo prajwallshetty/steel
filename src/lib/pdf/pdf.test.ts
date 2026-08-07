@@ -37,19 +37,20 @@ describe("vector PDF", () => {
     expect(pdf.length).toBeGreaterThan(1000);
   });
 
-  it("is a single A4 landscape page", async () => {
+  it("is a single A4 portrait page", async () => {
     const raw = (await rendered).toString("latin1");
     const mediaBox = /MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)\s*\]/.exec(raw);
     expect(mediaBox).not.toBeNull();
 
-    // A4 landscape in PDF points. Compared numerically because the writer
-    // emits full float precision (841.890015), not a rounded literal.
+    // A4 portrait in PDF points. Compared numerically because the writer
+    // emits full float precision (595.280015), not a rounded literal.
     const [, width, height] = mediaBox!;
-    expect(Number(width)).toBeCloseTo(841.89, 1);
-    expect(Number(height)).toBeCloseTo(595.28, 1);
+    expect(Number(width)).toBeCloseTo(595.28, 1);
+    expect(Number(height)).toBeCloseTo(841.89, 1);
 
     expect((raw.match(/\/Type\s*\/Page[^s]/g) ?? []).length).toBe(1);
   });
+
 
   it("embeds the figures as selectable text, not an image", async () => {
     const raw = (await rendered).toString("latin1");

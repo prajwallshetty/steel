@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { LedgerDirection, LedgerStatus, QuotationStatus, Role, UserStatus } from "@prisma/client";
 import { prisma, NOT_DELETED } from "@/lib/database/prisma";
 import {
@@ -74,10 +75,12 @@ export interface DashboardFilters {
   readonly to?: string;
 }
 
-export async function getDashboardMetrics(
-  subject: ScopeSubject,
-  filters?: DashboardFilters,
-): Promise<DashboardMetrics> {
+export const getDashboardMetrics = cache(
+  async (
+    subject: ScopeSubject,
+    filters?: DashboardFilters,
+  ): Promise<DashboardMetrics> => {
+
   const qScope = quotationWhere(quotationScope(subject));
   const lScope = ledgerWhere(ledgerScope(subject));
 
@@ -471,8 +474,9 @@ export async function getDashboardMetrics(
   const flowMonthly = new Map<string, { incoming: number; outgoing: number }>();
 
   if (isFiltered) {
-    let current = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+    const current = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
     const endLimit = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+
     let count = 0;
     while (current <= endLimit && count < 36) {
       const year = current.getFullYear();
@@ -622,4 +626,5 @@ export async function getDashboardMetrics(
       status: entry.status,
     })),
   };
-}
+});
+

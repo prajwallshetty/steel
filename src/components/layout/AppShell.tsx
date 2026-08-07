@@ -1,7 +1,8 @@
 "use client";
 
+import { memo } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   BookOpenCheck,
   Building2,
@@ -17,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/layout/NotificationBell";
+import { NavigationProgress } from "@/components/layout/NavigationProgress";
 import { logoutAction } from "@/modules/auth/auth-actions";
 import { PWAInstallButton } from "./PWAInstallButton";
 import { ROLE_LABELS, type Permission } from "@/modules/permissions/permissions";
@@ -145,6 +147,7 @@ export function AppShell({
 
   return (
     <div className="flex min-h-screen bg-background">
+      <NavigationProgress />
       <aside className="print-hidden sticky top-0 hidden h-screen w-68 shrink-0 flex-col border-r bg-card lg:flex transition-all duration-300">
         <div className="flex h-20 items-center border-b px-6 gap-3">
           <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold shadow-md shadow-primary/10 select-none">
@@ -159,9 +162,9 @@ export function AppShell({
         </div>
 
         <nav className="flex-1 space-y-8 overflow-y-auto p-4">
-          <NavGroup items={primary} pathname={pathname} />
+          <MemoizedNavGroup items={primary} pathname={pathname} />
           {admin.length > 0 && (
-            <NavGroup label="Administration" items={admin} pathname={pathname} />
+            <MemoizedNavGroup label="Administration" items={admin} pathname={pathname} />
           )}
           <div className="pt-4 border-t border-border/40">
             <PWAInstallButton />
@@ -222,7 +225,7 @@ export function AppShell({
   );
 }
 
-function NavGroup({
+function NavGroupComponent({
   label,
   items,
   pathname,
@@ -231,11 +234,13 @@ function NavGroup({
   readonly items: readonly NavItem[];
   readonly pathname: string;
 }) {
+  const router = useRouter();
   if (items.length === 0) return null;
+
   return (
     <div className="space-y-2">
       {label && (
-        <p className="px-4 pb-2 text-[11px] font-bold uppercase tracking-widest text-muted-foreground/80">
+        <p className="px-4 pb-2 text-[11px] font-bold uppercase tracking-widest text-muted-foreground/80 select-none">
           {label}
         </p>
       )}
@@ -247,8 +252,14 @@ function NavGroup({
             key={item.href}
             href={item.href}
             aria-current={active ? "page" : undefined}
+            onMouseEnter={() => {
+              router.prefetch(item.href);
+            }}
+            onFocus={() => {
+              router.prefetch(item.href);
+            }}
             className={cn(
-              "relative flex items-center gap-3 rounded-lg px-4 py-3 text-[16px] md:text-[17px] font-semibold transition-all duration-200 group select-none",
+              "relative flex items-center gap-3 rounded-lg px-4 py-3 text-[16px] md:text-[17px] font-semibold transition-all duration-150 group select-none gpu-accelerated active:scale-[0.98]",
               active
                 ? "bg-primary/8 text-primary shadow-xs"
                 : "text-muted-foreground hover:bg-accent hover:text-foreground",
@@ -257,7 +268,7 @@ function NavGroup({
             {active && (
               <span className="absolute left-0 top-1/4 h-1/2 w-1 rounded-r-md bg-primary" />
             )}
-            <item.icon className={cn("size-5 shrink-0 transition-transform duration-200 group-hover:scale-105", active ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
+            <item.icon className={cn("size-5 shrink-0 transition-transform duration-150 group-hover:scale-105", active ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
             {item.label}
           </Link>
         );
@@ -265,3 +276,6 @@ function NavGroup({
     </div>
   );
 }
+
+const MemoizedNavGroup = memo(NavGroupComponent);
+

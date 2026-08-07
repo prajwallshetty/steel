@@ -1,7 +1,7 @@
 "use client";
 
+import { memo, useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { useCallback, useTransition } from "react";
 import { Loader2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,15 +24,48 @@ export interface FilterField {
 
 const ALL = "__all__";
 
-/**
- * URL-driven filters.
- *
- * State lives in the query string rather than component state, so a filtered
- * view is shareable, survives a refresh, and lets the server do the filtering —
- * which is also what keeps scoping enforced on the server rather than in the
- * browser.
- */
-export function FilterBar({
+function SearchFilterInput({
+  field,
+  initialValue,
+  onApply,
+}: {
+  readonly field: FilterField;
+  readonly initialValue: string;
+  readonly onApply: (key: string, value: string) => void;
+}) {
+  const [val, setVal] = useState(initialValue);
+
+  useEffect(() => {
+    setVal(initialValue);
+  }, [initialValue]);
+
+  useEffect(() => {
+    if (val === initialValue) return;
+    const timer = setTimeout(() => {
+      onApply(field.key, val);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [val, initialValue, field.key, onApply]);
+
+  return (
+    <Input
+      id={`filter-${field.key}`}
+      type={field.type === "date" ? "date" : "search"}
+      value={val}
+      placeholder={field.placeholder}
+      className={field.type === "date" ? "w-44" : "w-64"}
+      onChange={(e) => setVal(e.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          onApply(field.key, val);
+        }
+      }}
+    />
+  );
+}
+
+function FilterBarComponent({
   fields,
   className,
 }: {
@@ -65,7 +98,7 @@ export function FilterBar({
           <div key={field.key} className="space-y-1.5">
             <Label
               htmlFor={`filter-${field.key}`}
-              className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+              className="text-xs font-semibold uppercase tracking-wide text-muted-foreground select-none"
             >
               {field.label}
             </Label>
@@ -73,7 +106,6 @@ export function FilterBar({
             {field.type === "select" ? (
               <Select
                 value={searchParams.get(field.key) ?? ALL}
-                // Base UI reports a null value when the selection is cleared.
                 onValueChange={(value) => apply(field.key, value ?? ALL)}
               >
                 <SelectTrigger id={`filter-${field.key}`} className="w-48">
@@ -99,21 +131,10 @@ export function FilterBar({
                 </SelectContent>
               </Select>
             ) : (
-              <Input
-                id={`filter-${field.key}`}
-                type={field.type === "date" ? "date" : "search"}
-                defaultValue={searchParams.get(field.key) ?? ""}
-                placeholder={field.placeholder}
-                className={field.type === "date" ? "w-44" : "w-64"}
-                // Search applies on blur/Enter rather than per keystroke, so a
-                // long query does not fire a request per character.
-                onBlur={(event) => apply(field.key, event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    apply(field.key, event.currentTarget.value);
-                  }
-                }}
+              <SearchFilterInput
+                field={field}
+                initialValue={searchParams.get(field.key) ?? ""}
+                onApply={apply}
               />
             )}
           </div>
@@ -129,7 +150,7 @@ export function FilterBar({
               })
             }
           >
-            <X />
+            <X className="size-4" />
             Clear
           </Button>
         )}
@@ -141,3 +162,6 @@ export function FilterBar({
     </div>
   );
 }
+
+export const FilterBar = memo(FilterBarComponent);
+

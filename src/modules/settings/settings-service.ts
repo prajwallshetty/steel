@@ -1,4 +1,6 @@
 import "server-only";
+import { cache } from "react";
+import { revalidatePath } from "next/cache";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/database/prisma";
 import { DEFAULT_SETTINGS } from "@/lib/settings/defaults";
@@ -26,20 +28,20 @@ function merge(stored: Partial<AppSettings> | null): AppSettings {
   };
 }
 
-/** Effective settings for a branch (or the global row when `branchId` is null). */
-export async function getSettings(
-  branchId?: string | null,
-): Promise<AppSettings> {
-  const [branchRow, globalRow] = await Promise.all([
-    branchId
-      ? prisma.systemSetting.findUnique({ where: { branchId } })
-      : Promise.resolve(null),
-    prisma.systemSetting.findFirst({ where: { branchId: null } }),
-  ]);
+/** Effective settings for a branch (or the global row when `branchId` is null). Cached per-request. */
+export const getSettings = cache(
+  async (branchId?: string | null): Promise<AppSettings> => {
+    const [branchRow, globalRow] = await Promise.all([
+      branchId
+        ? prisma.systemSetting.findUnique({ where: { branchId } })
+        : Promise.resolve(null),
+      prisma.systemSetting.findFirst({ where: { branchId: null } }),
+    ]);
 
-  const source = branchRow ?? globalRow;
-  return merge(source?.data as Partial<AppSettings> | null);
-}
+    const source = branchRow ?? globalRow;
+    return merge(source?.data as Partial<AppSettings> | null);
+  }
+);
 
 export async function saveSettings(
   input: Omit<AppSettings, "updatedAt">,
@@ -54,6 +56,7 @@ export async function saveSettings(
       create: { branchId, data: data as unknown as Prisma.InputJsonValue, updatedById },
       update: { data: data as unknown as Prisma.InputJsonValue, updatedById },
     });
+    revalidatePath("/", "layout");
     return data;
   }
 
@@ -78,5 +81,7 @@ export async function saveSettings(
     });
   }
 
+  revalidatePath("/", "layout");
   return data;
 }
+

@@ -2,8 +2,8 @@
 
 import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+
 import type { FieldValues, UseFormReturn } from "react-hook-form";
 import type { ActionResult } from "@/modules/shared/action-result";
 import { Button } from "@/components/ui/button";
@@ -122,11 +122,11 @@ export function EntityDialog<
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={saving}>
-              {saving && <Loader2 className="animate-spin" />}
+            <Button type="submit" loading={saving}>
               {submitLabel}
             </Button>
           </DialogFooter>
+
         </form>
       </DialogContent>
     </Dialog>

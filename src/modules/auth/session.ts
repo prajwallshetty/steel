@@ -1,5 +1,7 @@
 import "server-only";
+import { cache } from "react";
 import { cookies, headers } from "next/headers";
+
 import { SignJWT, jwtVerify } from "jose";
 import { Role, UserStatus } from "@prisma/client";
 import { prisma } from "@/lib/database/prisma";
@@ -92,10 +94,10 @@ export async function destroySession(): Promise<string | null> {
 /**
  * The current user, or null when signed out.
  *
- * Not cached across requests: the whole point of the database round trip is to
- * observe revocations immediately.
+ * Wrapped with React cache() to deduplicate database queries across guards, layouts,
+ * and page functions during a single request lifecycle.
  */
-export async function getSessionUser(): Promise<SessionUser | null> {
+export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   const store = await cookies();
   const token = store.get(COOKIE_NAME)?.value;
   if (!token) return null;
@@ -132,7 +134,8 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     deniedPermissions: user.deniedPermissions,
     sessionId: session.id,
   };
-}
+});
+
 
 async function readSessionId(token: string): Promise<string | null> {
   try {

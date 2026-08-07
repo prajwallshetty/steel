@@ -34,7 +34,7 @@ interface QuotationRowsGridProps {
  * handed to memoised row components, so a keystroke re-renders one input and
  * the four read-only figures beside it rather than the whole editor.
  */
-export function QuotationRowsGrid({
+export const QuotationRowsGrid = memo(function QuotationRowsGrid({
   control,
   settings,
   disabled = false,
@@ -66,11 +66,11 @@ export function QuotationRowsGrid({
     <div
       ref={containerRef}
       onKeyDown={handleKeyDown}
-      className="overflow-x-auto rounded-lg border"
+      className="overflow-x-auto rounded-lg border bg-card"
     >
       <table className="w-full min-w-[1000px] border-collapse text-sm">
         <thead>
-          <tr className="border-b bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
+          <tr className="border-b bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground select-none">
             <th scope="col" className="px-3 py-2 text-left font-semibold">
               Size
             </th>
@@ -116,7 +116,8 @@ export function QuotationRowsGrid({
       </table>
     </div>
   );
-}
+});
+
 
 interface GridRowProps {
   readonly control: Control<QuotationDraftInput>;

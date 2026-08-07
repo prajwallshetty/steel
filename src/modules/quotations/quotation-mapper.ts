@@ -64,8 +64,10 @@ export function toDomainQuotation(record: QuotationRecord): Quotation {
       payment: record.payment,
       cdType: record.cdType as any,
       vehicleNo: record.vehicleNo,
+      cdPercent: record.rows[0] ? toNumber(record.rows[0].discountPercent) : 0,
     },
     rows: record.rows.map(toDomainRow),
+
     remarks: record.remarks,
     createdBy: record.createdBy?.name ?? "System",
     createdAt: record.createdAt.toISOString(),

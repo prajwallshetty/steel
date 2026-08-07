@@ -25,10 +25,10 @@ export default async function LoginPage({
       <div className="relative w-full max-w-sm space-y-8 z-10">
         <div className="space-y-3 text-center">
           <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-primary to-indigo-600 text-xl font-bold text-primary-foreground shadow-lg shadow-primary/25 select-none animate-fade-in">
-            ST
+            LSC
           </div>
           <h1 className="text-3xl font-extrabold tracking-tight text-foreground select-none">
-            Steel Quotation ERP
+            LSC Alloys Quotation ERP
           </h1>
           <p className="text-sm text-muted-foreground select-none">
             Sign in to continue to your dashboard.

@@ -1,6 +1,6 @@
 "use client";
 
-import { Controller, type Control, type FieldErrors } from "react-hook-form";
+import { Controller, useWatch, type Control, type FieldErrors } from "react-hook-form";
 import type { AppSettings } from "@/types/settings";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +12,8 @@ interface QuotationHeaderFieldsProps {
   readonly errors: any;
   readonly settings: AppSettings;
   readonly disabled?: boolean;
+  readonly setValue: any;
+  readonly getValues: any;
 }
 
 /** The eight header cells of the sheet, as a form. */
@@ -20,8 +22,24 @@ export function QuotationHeaderFields({
   errors,
   settings,
   disabled = false,
+  setValue,
+  getValues,
 }: QuotationHeaderFieldsProps) {
   const headerErrors = errors.header;
+  const basicRateLabelValue = useWatch({ control, name: "header.basicRateLabel" }) || "";
+
+  const [basicVal, diffVal] = (() => {
+    const clean = String(basicRateLabelValue).trim();
+    const dashMatch = clean.match(/^(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)/);
+    if (dashMatch) {
+      return [dashMatch[1], dashMatch[2]];
+    }
+    const singleMatch = clean.match(/^(\d+(?:\.\d+)?)/);
+    if (singleMatch) {
+      return [singleMatch[1], "4000"];
+    }
+    return ["", "4000"];
+  })();
 
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -92,21 +110,45 @@ export function QuotationHeaderFields({
         label="Basic rate"
         error={headerErrors?.basicRateLabel?.message}
         required
-        hint="Printed as written, e.g. 40300-4000-R"
+        hint="Underlying rate before differences"
       >
-        <Controller
-          control={control}
-          name="header.basicRateLabel"
-          render={({ field }) => (
-            <Input
-              {...field}
-              disabled={disabled}
-              className="uppercase"
-              placeholder="40300-4000-R"
-            />
-          )}
+        <Input
+          type="number"
+          inputMode="decimal"
+          value={basicVal}
+          disabled={disabled}
+          placeholder="36300"
+          onChange={(e) => {
+            const newBasic = e.target.value;
+            const combined = newBasic ? `${newBasic}-${diffVal}` : "";
+            setValue("header.basicRateLabel", combined, { shouldDirty: true });
+            if (newBasic) {
+              localStorage.setItem("steel_last_basic_rate", newBasic);
+            }
+          }}
         />
       </Field>
+
+      <Field
+        label="Rate diff"
+        required
+        hint="Subtracted difference (usually 4000)"
+      >
+        <Input
+          type="number"
+          inputMode="decimal"
+          value={diffVal}
+          disabled={disabled}
+          placeholder="4000"
+          onChange={(e) => {
+            const newDiff = e.target.value || "0";
+            const combined = basicVal ? `${basicVal}-${newDiff}` : "";
+            setValue("header.basicRateLabel", combined, { shouldDirty: true });
+            localStorage.setItem("steel_last_rate_diff", newDiff);
+          }}
+        />
+      </Field>
+
 
       <Field
         label="Dia difference"

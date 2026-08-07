@@ -98,7 +98,9 @@ export interface QuotationHeader {
   readonly payment: string;
   readonly cdType: "basic" | "basic-diff" | "gross";
   readonly vehicleNo: string;
+  readonly cdPercent?: number | null;
 }
+
 
 export interface QuotationTotals {
   readonly totalQuantity: number;

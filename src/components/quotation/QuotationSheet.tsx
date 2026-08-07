@@ -41,7 +41,11 @@ export function QuotationSheet({ quotation, settings }: QuotationSheetProps) {
     location: header.location,
     partyName: header.partyName,
     brand: header.brand,
-    basicRateLabel: header.basicRateLabel,
+    basicRateLabel: (() => {
+      const clean = (header.basicRateLabel || "").trim();
+      const match = clean.match(/^(\d+(?:\.\d+)?)/);
+      return match ? match[1] : header.basicRateLabel;
+    })(),
     diaDiffLabel: header.diaDiffLabel,
     payment: header.payment,
     vehicleNo: header.vehicleNo,

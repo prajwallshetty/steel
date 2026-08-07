@@ -152,6 +152,7 @@ export function QuotationEditor({
     handleSubmit,
     setValue,
     getValues,
+    reset,
     formState: { errors, isDirty },
   } = useForm<QuotationEditorValues>({
     resolver: zodResolver(editorSchema),
@@ -160,10 +161,41 @@ export function QuotationEditor({
   });
 
   const basicRateLabelValue = useWatch({ control, name: "header.basicRateLabel" });
+
   const cdPercentValue = useWatch({ control, name: "header.cdPercent" });
   const diaDiffLabelValue = useWatch({ control, name: "header.diaDiffLabel" });
 
   const prevBasicRateLabel = useRef<string | undefined>(initialDraft.header.basicRateLabel);
+
+  useEffect(() => {
+    if (mode === "create") {
+      const savedBasic = localStorage.getItem("steel_last_basic_rate");
+      const savedDiff = localStorage.getItem("steel_last_rate_diff");
+      if (savedBasic || savedDiff) {
+        const defaultBasicVal = String(settings.pricing.defaultBasicRate + 4000);
+        const finalBasic = savedBasic ?? defaultBasicVal;
+        const finalDiff = savedDiff ?? "4000";
+        const combined = `${finalBasic}-${finalDiff}`;
+        const calculatedBasic = Math.max(0, parseBasicRate(combined) ?? 0);
+
+        const currentValues = getValues();
+        const updatedRows = (currentValues.rows || []).map((row) => ({
+          ...row,
+          basic: calculatedBasic,
+        }));
+
+        prevBasicRateLabel.current = combined;
+        reset({
+          ...currentValues,
+          header: {
+            ...currentValues.header,
+            basicRateLabel: combined,
+          },
+          rows: updatedRows,
+        });
+      }
+    }
+  }, [mode, reset, settings]);
   useEffect(() => {
     if (basicRateLabelValue !== prevBasicRateLabel.current) {
       prevBasicRateLabel.current = basicRateLabelValue;
@@ -172,7 +204,7 @@ export function QuotationEditor({
         if (calculatedBasic !== null) {
           const rows = getValues("rows") || [];
           rows.forEach((_, index) => {
-            setValue(`rows.${index}.basic`, calculatedBasic, { shouldDirty: true });
+            setValue(`rows.${index}.basic`, Math.max(0, calculatedBasic), { shouldDirty: true });
           });
         }
       }
@@ -183,14 +215,14 @@ export function QuotationEditor({
   useEffect(() => {
     if (cdPercentValue !== prevCdPercent.current) {
       prevCdPercent.current = cdPercentValue;
-      if (cdPercentValue !== undefined && cdPercentValue !== null) {
-        const rows = getValues("rows") || [];
-        rows.forEach((_, index) => {
-          setValue(`rows.${index}.discountPercent`, cdPercentValue, { shouldDirty: true });
-        });
-      }
+      const targetPercent = (cdPercentValue === undefined || cdPercentValue === null) ? 0 : cdPercentValue;
+      const rows = getValues("rows") || [];
+      rows.forEach((_, index) => {
+        setValue(`rows.${index}.discountPercent`, targetPercent, { shouldDirty: true });
+      });
     }
   }, [cdPercentValue, getValues, setValue]);
+
 
   const prevDiaDiffLabel = useRef<string | undefined>(initialDraft.header.diaDiffLabel);
   useEffect(() => {
@@ -346,7 +378,10 @@ export function QuotationEditor({
             control={control}
             errors={errors}
             settings={settings}
+            setValue={setValue}
+            getValues={getValues}
           />
+
         </CardContent>
       </Card>
 
@@ -391,9 +426,9 @@ export function QuotationEditor({
 
       <LivePreview control={control} settings={settings} meta={meta} />
 
-      <div className="sticky bottom-0 -mx-6 flex flex-wrap items-center justify-end gap-2 border-t bg-background/95 px-6 py-4 backdrop-blur">
+      <div className="sticky bottom-0 -mx-4 sm:-mx-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 border-t bg-background/95 px-4 sm:px-6 py-3 sm:py-4 backdrop-blur pb-safe z-30">
         {isDirty && (
-          <span className="mr-auto text-sm text-muted-foreground">
+          <span className="sm:mr-auto text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
             Unsaved changes
           </span>
         )}
@@ -402,6 +437,7 @@ export function QuotationEditor({
           variant="outline"
           disabled={isSaving}
           onClick={() => void submit("DRAFT")}
+          className="w-full sm:w-auto min-h-[44px]"
         >
           {isSaving && pendingStatus === "DRAFT" ? (
             <Loader2 className="animate-spin" />
@@ -414,6 +450,7 @@ export function QuotationEditor({
           type="button"
           disabled={isSaving}
           onClick={() => void submit("PENDING_APPROVAL")}
+          className="w-full sm:w-auto min-h-[44px]"
         >
           {isSaving && pendingStatus === "PENDING_APPROVAL" ? (
             <Loader2 className="animate-spin" />

@@ -1,7 +1,7 @@
 {
-  "name": "Steel Ledger ERP",
-  "short_name": "SteelLedger",
-  "description": "Premium Steel Business Ledger and Quotations ERP",
+  "name": "LSC Alloys Ledger ERP",
+  "short_name": "LSCAlloys",
+  "description": "Premium Alloys Business Ledger and Quotations ERP",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

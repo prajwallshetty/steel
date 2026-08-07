@@ -247,7 +247,7 @@ export function ReportPdfDocument({
 
         {/* Footer */}
         <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>Steel Quotation ERP Report</Text>
+          <Text style={styles.footerText}>LSC Alloys Quotation ERP Report</Text>
           <Text
             style={styles.footerText}
             render={({ pageNumber, totalPages }) =>

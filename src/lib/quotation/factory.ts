@@ -20,7 +20,7 @@ export function createRowsFromSettings(
     id: size,
     size,
     quantity: 0,
-    basic: settings.pricing.defaultBasicRate - 4000,
+    basic: settings.pricing.defaultBasicRate,
     difference: settings.differences[size] ?? 0,
     loading: settings.differences[size] ? settings.pricing.loading : 0,
     discountPercent: settings.pricing.defaultDiscountPercent,
@@ -49,7 +49,7 @@ export function deriveDiaDiffLabel(settings: AppSettings): string {
 
 /** A blank draft, pre-populated so the sheet is immediately recognisable. */
 export function createEmptyDraft(settings: AppSettings): QuotationDraftInput {
-  const baseBasic = settings.pricing.defaultBasicRate - 4000;
+  const baseBasic = settings.pricing.defaultBasicRate + 4000;
   return {
     status: "DRAFT",
     header: {
@@ -78,8 +78,10 @@ export function duplicateAsDraft(source: Quotation): QuotationDraftInput {
       ...source.header,
       date: new Date().toISOString().slice(0, 10),
       vehicleNo: "",
+      cdPercent: source.header.cdPercent ?? 0,
     },
     rows: source.rows.map((row) => ({ ...row })),
+
     remarks: source.remarks,
   };
 }

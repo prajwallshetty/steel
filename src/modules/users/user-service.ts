@@ -187,7 +187,7 @@ export async function createUser(
 
   await notifyUsers([user.id], {
     type: NotificationType.USER_CREATED,
-    title: "Welcome to Steel ERP",
+    title: "Welcome to LSC Alloys ERP",
     body: `Your ${user.role.replace(/_/g, " ").toLowerCase()} account has been created.`,
     link: "/dashboard",
     branchId,

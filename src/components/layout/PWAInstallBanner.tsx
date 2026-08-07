@@ -1,36 +1,35 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Download, PlusSquare, Share, Sparkles, X } from "lucide-react";
+import { Download, PlusSquare, Share, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-interface PWAInstallButtonProps {
-  readonly className?: string;
-  readonly showLabel?: boolean;
-}
-
-export function PWAInstallButton({ className, showLabel = true }: PWAInstallButtonProps) {
+export function PWAInstallBanner() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [isInstalled, setIsInstalled] = useState(true); // default to true to prevent flash on SSR
+  const [isInstalled, setIsInstalled] = useState(true); // default to true to avoid flash on SSR
   const [isIOS, setIsIOS] = useState(false);
+  const [isDismissed, setIsDismissed] = useState(true); // default to true to avoid flash on SSR
   const [showIOSModal, setShowIOSModal] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      // 1. Check if running as standalone PWA
+      // Check if already running standalone
       const isStandalone =
         window.matchMedia("(display-mode: standalone)").matches ||
         (window.navigator as any).standalone === true;
 
       setIsInstalled(isStandalone);
 
-      // 2. Check if device is iOS (Safari doesn't support beforeinstallprompt)
+      // Check if iOS
       const userAgent = window.navigator.userAgent.toLowerCase();
       const iosDevice = /iphone|ipad|ipod/.test(userAgent);
       setIsIOS(iosDevice);
 
-      // 3. Listen for native browser beforeinstallprompt (Chrome / Edge / Android)
+      // Check if dismissed in this session
+      const dismissed = sessionStorage.getItem("pwa_banner_dismissed") === "true";
+      setIsDismissed(dismissed);
+
       const handleBeforeInstallPrompt = (e: Event) => {
         e.preventDefault();
         setDeferredPrompt(e);
@@ -39,7 +38,6 @@ export function PWAInstallButton({ className, showLabel = true }: PWAInstallButt
       const handleAppInstalled = () => {
         setIsInstalled(true);
         setDeferredPrompt(null);
-        setShowIOSModal(false);
         toast.success("App installed successfully.");
       };
 
@@ -77,33 +75,48 @@ export function PWAInstallButton({ className, showLabel = true }: PWAInstallButt
     setDeferredPrompt(null);
   };
 
-  // If already installed, replace with "✅ Installed" badge
-  if (isInstalled) {
-    return (
-      <div className="flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg border border-emerald-200 dark:border-emerald-800/50 select-none">
-        <Check className="size-4 shrink-0 text-emerald-500" />
-        <span>Installed</span>
-      </div>
-    );
-  }
+  const handleDismiss = () => {
+    sessionStorage.setItem("pwa_banner_dismissed", "true");
+    setIsDismissed(true);
+  };
 
-  // Show only when the app is installable (either iOS or beforeinstallprompt fired)
+  // Only display banner if NOT installed, NOT dismissed, and installable (either iOS Safari or beforeinstallprompt fired)
   const isInstallable = isIOS || deferredPrompt !== null;
-  if (!isInstallable) {
+  if (isInstalled || isDismissed || !isInstallable) {
     return null;
   }
 
   return (
     <>
-      <Button
-        type="button"
-        variant="ghost"
-        onClick={handleInstallClick}
-        className={className || "w-full justify-start h-11 px-3.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg gap-3 flex items-center transition-all shadow-none min-h-[44px]"}
-      >
-        <Download className="size-4 text-primary animate-bounce" />
-        {showLabel && <span>Install App</span>}
-      </Button>
+      <div className="print-hidden bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border-b border-primary/20 px-4 py-2.5 sm:px-8 flex items-center justify-between gap-4 animate-in slide-in-from-top duration-300 select-none">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="hidden xs:flex size-8 rounded-lg bg-primary/10 items-center justify-center text-primary shrink-0">
+            <Sparkles className="size-4 animate-pulse" />
+          </div>
+          <p className="text-xs sm:text-sm font-semibold text-foreground truncate">
+            Install ERP for faster access and a native full-screen experience.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            size="xs"
+            variant="default"
+            onClick={handleInstallClick}
+            className="h-8 text-xs font-bold gap-1 rounded-md px-3 active:scale-95 shadow-none"
+          >
+            <Download className="size-3.5" />
+            Install
+          </Button>
+          <Button
+            size="xs"
+            variant="ghost"
+            onClick={handleDismiss}
+            className="h-8 text-xs font-semibold text-muted-foreground hover:text-foreground rounded-md px-2.5"
+          >
+            Later
+          </Button>
+        </div>
+      </div>
 
       {/* iOS Safari Instructions Modal */}
       {showIOSModal && (

@@ -23,6 +23,7 @@ import { NotificationBell } from "@/components/layout/NotificationBell";
 import { NavigationProgress } from "@/components/layout/NavigationProgress";
 import { logoutAction } from "@/modules/auth/auth-actions";
 import { PWAInstallButton } from "./PWAInstallButton";
+import { PWAInstallBanner } from "./PWAInstallBanner";
 import { ROLE_LABELS, type Permission } from "@/modules/permissions/permissions";
 import type { Role } from "@prisma/client";
 
@@ -267,6 +268,7 @@ export function AppShell({
 
       {/* Main Content Area */}
       <div className="flex min-w-0 flex-1 flex-col">
+        <PWAInstallBanner />
         <header className="print-hidden sticky top-0 z-20 flex h-16 sm:h-20 items-center justify-between gap-3 border-b bg-background/95 px-4 sm:px-8 backdrop-blur pt-safe">
           <div className="flex items-center gap-2 lg:hidden">
             <Button

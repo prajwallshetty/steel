@@ -51,8 +51,8 @@ const prisma = new PrismaClient({
 const PASSWORD = process.env.SEED_PASSWORD ?? "ChangeMe123";
 
 const BRANCHES = [
-  { code: "MNG", name: "Mangalore", state: "Karnataka", gstNumber: "29ABCDE1234F1Z5" },
-  { code: "MAH", name: "Maharashtra", state: "Maharashtra", gstNumber: "27ABCDE1234F1Z5" },
+  { code: "MNG", name: "Mangalore", state: "Karnataka", gstNumber: "29ABCDE1234F1Z5", startingBalance: 50000 },
+  { code: "MAH", name: "Maharashtra", state: "Maharashtra", gstNumber: "27ABCDE1234F1Z5", startingBalance: 75000 },
 ] as const;
 
 async function main() {
@@ -80,9 +80,12 @@ async function main() {
     branches.push(
       await prisma.branch.upsert({
         where: { code: branch.code },
-        update: {},
+        update: {
+          startingBalance: new Prisma.Decimal(branch.startingBalance),
+        },
         create: {
           ...branch,
+          startingBalance: new Prisma.Decimal(branch.startingBalance),
           phone: "+91 80 4000 0000",
           email: `${branch.code.toLowerCase()}@steel.local`,
           status: "ACTIVE",

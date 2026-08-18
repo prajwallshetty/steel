@@ -66,6 +66,29 @@ export interface DashboardMetrics {
     direction: string;
     status: LedgerStatus;
   }[];
+
+  // Division Financial Overview
+  readonly divisionFinancials: readonly DivisionFinancialMetric[];
+  readonly overallFinancials: OverallFinancialMetric;
+}
+
+export interface DivisionFinancialMetric {
+  readonly id: string;
+  readonly code: string;
+  readonly name: string;
+  readonly startingBalance: number;
+  readonly openingBalance: number;
+  readonly totalRevenue: number;
+  readonly totalExpenses: number;
+  readonly closingBalance: number;
+  readonly cashInHand: number;
+}
+
+export interface OverallFinancialMetric {
+  readonly totalRevenue: number;
+  readonly totalExpenses: number;
+  readonly totalClosingBalance: number;
+  readonly totalCashInHand: number;
 }
 
 const isoDay = (date: Date) => date.toISOString().slice(0, 10);
@@ -555,6 +578,123 @@ export const getDashboardMetrics = cache(
     Number(totalBillsRes._sum?.amount ?? 0) - Number(totalPaidOnBillsRes._sum?.amount ?? 0)
   );
 
+  // --- Division Financial Overview Calculations ---
+  const activeDivisions = await prisma.branch.findMany({
+    where: {
+      ...NOT_DELETED,
+      status: "ACTIVE",
+      ...(isSuper ? {} : { id: subject.branchId ?? "__none__" }),
+    },
+    select: { id: true, name: true, code: true, startingBalance: true },
+    orderBy: { name: "asc" },
+  });
+
+  const divisionIds = activeDivisions.map((d) => d.id);
+
+  const priorAggregates = isFiltered && from
+    ? await prisma.cashLedgerEntry.groupBy({
+        by: ["branchId", "direction"],
+        where: {
+          branchId: { in: divisionIds },
+          status: { in: SETTLED },
+          entryDate: { lt: startDate },
+          ...NOT_DELETED,
+        },
+        _sum: { amount: true },
+      })
+    : [];
+
+  const periodAggregates = await prisma.cashLedgerEntry.groupBy({
+    by: ["branchId", "direction"],
+    where: {
+      branchId: { in: divisionIds },
+      status: { in: SETTLED },
+      ...(isFiltered ? { entryDate: { gte: startDate, lte: endDate } } : {}),
+      ...NOT_DELETED,
+    },
+    _sum: { amount: true },
+  });
+
+  const cashInHandAggregates = await prisma.cashLedgerEntry.groupBy({
+    by: ["branchId", "direction"],
+    where: {
+      branchId: { in: divisionIds },
+      status: { in: SETTLED },
+      paymentMethod: "CASH",
+      entryDate: { lte: balanceEndDate },
+      ...NOT_DELETED,
+    },
+    _sum: { amount: true },
+  });
+
+  const priorMap = new Map<string, { credit: number; debit: number }>();
+  for (const row of priorAggregates) {
+    const existing = priorMap.get(row.branchId) ?? { credit: 0, debit: 0 };
+    if (row.direction === LedgerDirection.CREDIT) {
+      existing.credit += Number(row._sum.amount ?? 0);
+    } else {
+      existing.debit += Number(row._sum.amount ?? 0);
+    }
+    priorMap.set(row.branchId, existing);
+  }
+
+  const periodMap = new Map<string, { credit: number; debit: number }>();
+  for (const row of periodAggregates) {
+    const existing = periodMap.get(row.branchId) ?? { credit: 0, debit: 0 };
+    if (row.direction === LedgerDirection.CREDIT) {
+      existing.credit += Number(row._sum.amount ?? 0);
+    } else {
+      existing.debit += Number(row._sum.amount ?? 0);
+    }
+    periodMap.set(row.branchId, existing);
+  }
+
+  const cashInHandMap = new Map<string, { credit: number; debit: number }>();
+  for (const row of cashInHandAggregates) {
+    const existing = cashInHandMap.get(row.branchId) ?? { credit: 0, debit: 0 };
+    if (row.direction === LedgerDirection.CREDIT) {
+      existing.credit += Number(row._sum.amount ?? 0);
+    } else {
+      existing.debit += Number(row._sum.amount ?? 0);
+    }
+    cashInHandMap.set(row.branchId, existing);
+  }
+
+  const divisionFinancials: DivisionFinancialMetric[] = activeDivisions.map((div) => {
+    const startingBalance = Number(div.startingBalance ?? 0);
+    const prior = priorMap.get(div.id) ?? { credit: 0, debit: 0 };
+    const period = periodMap.get(div.id) ?? { credit: 0, debit: 0 };
+    const cash = cashInHandMap.get(div.id) ?? { credit: 0, debit: 0 };
+
+    const openingBalance = startingBalance + prior.credit - prior.debit;
+    const totalRevenue = period.credit;
+    const totalExpenses = period.debit;
+    const closingBalance = openingBalance + totalRevenue - totalExpenses;
+    const cashInHand = startingBalance + cash.credit - cash.debit;
+
+    return {
+      id: div.id,
+      code: div.code,
+      name: div.name,
+      startingBalance,
+      openingBalance,
+      totalRevenue,
+      totalExpenses,
+      closingBalance,
+      cashInHand,
+    };
+  });
+
+  const overallFinancials: OverallFinancialMetric = divisionFinancials.reduce(
+    (acc, cur) => ({
+      totalRevenue: acc.totalRevenue + cur.totalRevenue,
+      totalExpenses: acc.totalExpenses + cur.totalExpenses,
+      totalClosingBalance: acc.totalClosingBalance + cur.closingBalance,
+      totalCashInHand: acc.totalCashInHand + cur.cashInHand,
+    }),
+    { totalRevenue: 0, totalExpenses: 0, totalClosingBalance: 0, totalCashInHand: 0 }
+  );
+
   return {
     totalRevenue: Number(revenueAll._sum?.grandTotal ?? 0),
     monthRevenue: Number(revenueMonth._sum?.grandTotal ?? 0),
@@ -625,6 +765,10 @@ export const getDashboardMetrics = cache(
       direction: entry.direction,
       status: entry.status,
     })),
+
+    // Division Financial Overview
+    divisionFinancials,
+    overallFinancials,
   };
 });
 

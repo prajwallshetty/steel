@@ -3,9 +3,9 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
-import { Controller, useFieldArray, useForm } from "react-hook-form";
+import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Plus, Save, Trash2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, Plus, Save, ShieldAlert, Trash2, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import type { AppSettings } from "@/types/settings";
 import type { ActionResult } from "@/modules/shared/action-result";
@@ -59,6 +59,7 @@ export function SettingsForm({ settings, onSave }: SettingsFormProps) {
     defaultValues: toFormValues(settings),
   });
 
+  const maintenanceMode = useWatch({ control, name: "maintenanceMode" });
   const sizes = useFieldArray({ control, name: "sizeRows" });
 
   const submit = handleSubmit((values) => {
@@ -69,7 +70,9 @@ export function SettingsForm({ settings, onSave }: SettingsFormProps) {
         return;
       }
       toast.success("Settings saved", {
-        description: "New defaults apply to future quotations only.",
+        description: values.maintenanceMode
+          ? "Site Maintenance Mode is now ACTIVE. Non-Super Admin users will be redirected to the maintenance page."
+          : "Settings updated successfully.",
       });
       router.refresh();
     });
@@ -77,6 +80,50 @@ export function SettingsForm({ settings, onSave }: SettingsFormProps) {
 
   return (
     <form onSubmit={submit} className="space-y-6">
+      {/* Site Maintenance Toggle Card */}
+      <Card className={maintenanceMode ? "border-amber-500 bg-amber-500/5 dark:bg-amber-500/10 shadow-md" : ""}>
+        <CardHeader className="flex flex-row items-center justify-between gap-4 pb-3">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Wrench className="size-5 text-amber-500" />
+                Site Maintenance Mode
+              </CardTitle>
+
+              {maintenanceMode ? (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-amber-500 text-white animate-pulse">
+                  <AlertTriangle className="size-3" />
+                  MAINTENANCE ACTIVE
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">
+                  <CheckCircle2 className="size-3" />
+                  Operational
+                </span>
+              )}
+            </div>
+            <CardDescription className="text-xs">
+              When enabled, only Super Admin accounts can access the ERP. All other users (Branch Admins, Managers, Accountants, Sales) will see a maintenance notice screen.
+            </CardDescription>
+          </div>
+
+          <Controller
+            control={control}
+            name="maintenanceMode"
+            render={({ field }) => (
+              <label className="relative inline-flex items-center cursor-pointer select-none shrink-0">
+                <input
+                  type="checkbox"
+                  checked={field.value}
+                  onChange={(e) => field.onChange(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500" />
+              </label>
+            )}
+          />
+        </CardHeader>
+      </Card>
       <Card>
         <CardHeader>
           <CardTitle>Sizes &amp; diameter differences</CardTitle>
@@ -342,6 +389,7 @@ const settingsFormSchema = z.object({
   locationsText: z.string().trim().min(1, "Add at least one location"),
   paymentTypesText: z.string().trim().min(1, "Add at least one payment type"),
   defaultRemarks: z.string(),
+  maintenanceMode: z.boolean(),
 });
 
 type SettingsFormValues = z.infer<typeof settingsFormSchema>;
@@ -358,6 +406,7 @@ function toFormValues(settings: AppSettings): SettingsFormValues {
     locationsText: settings.locations.join("\n"),
     paymentTypesText: settings.paymentTypes.join("\n"),
     defaultRemarks: settings.defaultRemarks,
+    maintenanceMode: settings.maintenanceMode ?? false,
   };
 }
 
@@ -378,6 +427,7 @@ function fromFormValues(values: SettingsFormValues): AppSettingsInput {
     // Derived from the difference tiers at render time; no manual list.
     highlightSizes: [],
     defaultRemarks: values.defaultRemarks,
+    maintenanceMode: values.maintenanceMode,
   };
 }
 

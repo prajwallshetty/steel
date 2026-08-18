@@ -36,6 +36,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   // Empty => derive from the diameter-difference tier, reproducing the sheet.
   highlightSizes: [],
   defaultRemarks: "PLEASE CHECK ONCE AND RE-CONFIRM IF ANY MISTAKE.",
+  maintenanceMode: false,
   updatedAt: "2026-01-01T00:00:00.000Z",
 };
 

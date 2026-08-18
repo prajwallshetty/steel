@@ -21,8 +21,8 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: "LSC Alloys Quotation ERP",
-    template: "%s · LSC Alloys Quotation ERP",
+    default: "Quotation ERP",
+    template: "%s · Quotation ERP",
   },
   description:
     "Role-based, multi-branch ERP for alloys trading — Excel-faithful quotations, cash ledger, approvals and reporting.",
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "LSC Alloys ERP",
+    title: "ERP",
   },
 };
 

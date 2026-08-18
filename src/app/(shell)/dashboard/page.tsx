@@ -149,6 +149,99 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         </CardContent>
       </Card>
 
+      {/* Super Admin Division Financial Overview */}
+      {isSuper && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground select-none">
+                Divisions Financial Overview
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Configured starting balances automatically carry forward previous day closing balances.
+              </p>
+            </div>
+            <Link
+              href="/admin/branches"
+              className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
+            >
+              Manage Divisions &rarr;
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            {metrics.divisionFinancials.map((div) => (
+              <Card key={div.id} className="border-t-4 border-t-primary shadow-xs">
+                <CardHeader className="pb-3 border-b bg-muted/20">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base font-bold text-foreground">
+                      {div.name}
+                    </CardTitle>
+                    <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-primary/10 text-primary uppercase">
+                      {div.code}
+                    </span>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-4 space-y-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground font-medium">Opening Balance</span>
+                    <span className="font-bold tabular-nums text-foreground">{money(div.openingBalance)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground font-medium">Total Revenue</span>
+                    <span className="font-bold tabular-nums text-emerald-600 dark:text-emerald-400">+{money(div.totalRevenue)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground font-medium">Total Expenses</span>
+                    <span className="font-bold tabular-nums text-red-600 dark:text-red-400">-{money(div.totalExpenses)}</span>
+                  </div>
+                  <div className="pt-2 border-t flex items-center justify-between text-sm">
+                    <span className="font-bold text-foreground">Closing Balance</span>
+                    <span className="font-extrabold tabular-nums text-emerald-700 dark:text-emerald-300">{money(div.closingBalance)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs pt-1">
+                    <span className="font-semibold text-blue-600 dark:text-blue-400">Cash in Hand</span>
+                    <span className="font-bold tabular-nums text-blue-600 dark:text-blue-400">{money(div.cashInHand)}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+
+            {/* Overall Combined Summary Card */}
+            <Card className="border-t-4 border-t-emerald-600 bg-emerald-50/20 dark:bg-emerald-950/10 shadow-xs">
+              <CardHeader className="pb-3 border-b bg-emerald-500/10">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base font-bold text-emerald-950 dark:text-emerald-100">
+                    Overall Summary
+                  </CardTitle>
+                  <span className="text-xs font-extrabold px-2 py-0.5 rounded bg-emerald-600 text-white uppercase">
+                    Combined
+                  </span>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-4 space-y-3">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground font-medium">Total Revenue</span>
+                  <span className="font-bold tabular-nums text-emerald-600 dark:text-emerald-400">+{money(metrics.overallFinancials.totalRevenue)}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground font-medium">Total Expenses</span>
+                  <span className="font-bold tabular-nums text-red-600 dark:text-red-400">-{money(metrics.overallFinancials.totalExpenses)}</span>
+                </div>
+                <div className="pt-2 border-t flex items-center justify-between text-sm">
+                  <span className="font-bold text-foreground">Total Closing Balance</span>
+                  <span className="font-extrabold tabular-nums text-emerald-700 dark:text-emerald-300">{money(metrics.overallFinancials.totalClosingBalance)}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs pt-1">
+                  <span className="font-semibold text-blue-600 dark:text-blue-400">Total Cash in Hand</span>
+                  <span className="font-bold tabular-nums text-blue-600 dark:text-blue-400">{money(metrics.overallFinancials.totalCashInHand)}</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
+
       {/* Group 1: Account Balances */}
       <div>
         <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 select-none">

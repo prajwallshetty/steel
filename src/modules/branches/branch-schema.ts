@@ -31,6 +31,9 @@ export const branchSchema = z.object({
     .or(z.literal("")),
   email: z.string().trim().email("Enter a valid email").optional().or(z.literal("")),
   logoUrl: z.string().trim().url("Enter a valid URL").optional().or(z.literal("")),
+  startingBalance: z.coerce
+    .number()
+    .min(0, "Starting balance cannot be negative"),
   status: z.enum(["ACTIVE", "INACTIVE", "ARCHIVED"]),
 });
 

@@ -94,7 +94,7 @@ const PRIMARY_NAV: readonly NavItem[] = [
 const ADMIN_NAV: readonly NavItem[] = [
   {
     href: "/admin/branches",
-    label: "Branches",
+    label: "Divisions",
     icon: Building2,
     anyOf: ["branch:view_all", "branch:view"],
   },
@@ -129,11 +129,13 @@ export function AppShell({
   user,
   notifications,
   unreadCount,
+  maintenanceMode,
   children,
 }: {
   readonly user: ShellUser;
   readonly notifications: readonly ShellNotification[];
   readonly unreadCount: number;
+  readonly maintenanceMode?: boolean;
   readonly children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -174,10 +176,10 @@ export function AppShell({
       <aside className="print-hidden sticky top-0 hidden h-screen w-68 shrink-0 flex-col border-r bg-card lg:flex transition-all duration-300">
         <div className="flex h-20 items-center border-b px-6 gap-3">
           <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold shadow-md shadow-primary/10 select-none">
-            LSC
+            ERP
           </div>
           <span className="text-[17px] font-extrabold leading-tight text-foreground tracking-tight">
-            LSC Alloys ERP
+            ERP
             <span className="block text-[11px] font-medium text-muted-foreground mt-0.5">
               {user.branchName ?? "All branches"}
             </span>
@@ -222,10 +224,10 @@ export function AppShell({
         <div className="flex h-20 items-center justify-between border-b px-5">
           <div className="flex items-center gap-3">
             <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold shadow-md shadow-primary/10 select-none">
-              LSC
+              ERP
             </div>
             <span className="text-[17px] font-extrabold leading-tight text-foreground tracking-tight">
-              LSC Alloys ERP
+              ERP
               <span className="block text-[11px] font-medium text-muted-foreground mt-0.5">
                 {user.branchName ?? "All branches"}
               </span>
@@ -268,6 +270,17 @@ export function AppShell({
 
       {/* Main Content Area */}
       <div className="flex min-w-0 flex-1 flex-col">
+        {maintenanceMode && (
+          <div className="bg-amber-500 text-white text-xs font-bold px-4 py-2 flex items-center justify-between shadow-xs border-b border-amber-600 z-30 select-none">
+            <span className="flex items-center gap-2">
+              <span className="flex size-2 rounded-full bg-white animate-ping" />
+              Site Maintenance Mode is currently ACTIVE. Standard users are blocked from access.
+            </span>
+            <Link href="/admin/settings" className="underline hover:opacity-90 font-extrabold shrink-0">
+              Manage Settings &rarr;
+            </Link>
+          </div>
+        )}
         <PWAInstallBanner />
         <header className="print-hidden sticky top-0 z-20 flex h-16 sm:h-20 items-center justify-between gap-3 border-b bg-background/95 px-4 sm:px-8 backdrop-blur pt-safe">
           <div className="flex items-center gap-2 lg:hidden">
@@ -282,9 +295,9 @@ export function AppShell({
             </Button>
             <Link href="/dashboard" className="text-base sm:text-lg font-extrabold text-foreground flex items-center gap-2">
               <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-xs font-bold">
-                LSC
+                ERP
               </span>
-              <span className="hidden xs:inline">LSC Alloys ERP</span>
+              <span className="hidden xs:inline">ERP</span>
             </Link>
           </div>
 

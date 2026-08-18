@@ -1,6 +1,6 @@
 {
-  "name": "LSC Alloys Ledger ERP",
-  "short_name": "LSCAlloys",
+  "name": "Quotation ERP",
+  "short_name": "ERP",
   "description": "Premium Alloys Business Ledger and Quotations ERP",
   "start_url": "/",
   "display": "standalone",

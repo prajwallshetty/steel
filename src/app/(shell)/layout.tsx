@@ -1,9 +1,12 @@
+import { redirect } from "next/navigation";
+import { Role } from "@prisma/client";
 import { requireUser } from "@/modules/auth/guard";
 import { effectivePermissions } from "@/modules/permissions/permissions";
 import {
   countUnread,
   listNotifications,
 } from "@/modules/notifications/notification-service";
+import { getSettings } from "@/modules/settings/settings-service";
 import { AppShell } from "@/components/layout/AppShell";
 
 export const dynamic = "force-dynamic";
@@ -19,10 +22,15 @@ export default async function ShellLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   const user = await requireUser();
 
-  const [notifications, unreadCount] = await Promise.all([
+  const [notifications, unreadCount, settings] = await Promise.all([
     listNotifications(user.id, 20),
     countUnread(user.id),
+    getSettings(user.branchId),
   ]);
+
+  if (settings.maintenanceMode && user.role !== Role.SUPER_ADMIN) {
+    redirect("/maintenance");
+  }
 
   return (
     <AppShell
@@ -41,6 +49,7 @@ export default async function ShellLayout({
         read: notification.readAt !== null,
         createdAt: notification.createdAt.toISOString(),
       }))}
+      maintenanceMode={Boolean(settings.maintenanceMode)}
     >
       {children}
     </AppShell>

@@ -55,5 +55,6 @@ export interface AppSettings {
    */
   readonly highlightSizes: readonly SizeCode[];
   readonly defaultRemarks: string;
+  readonly maintenanceMode?: boolean;
   readonly updatedAt: string;
 }

@@ -1,4 +1,4 @@
-const CACHE_NAME = "lsc-alloys-v2";
+const CACHE_NAME = "quotation-erp-v2";
 const OFFLINE_URL = "/offline.html";
 
 const PRECACHE_ASSETS = [
@@ -102,7 +102,7 @@ self.addEventListener("push", (event) => {
   if (!event.data) return;
   try {
     const data = event.data.json();
-    const title = data.title || "LSC Alloys ERP Alert";
+    const title = data.title || "ERP Alert";
     const options = {
       body: data.body || "New update available",
       icon: "/icon-192.png",

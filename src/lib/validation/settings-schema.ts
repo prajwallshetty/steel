@@ -43,6 +43,7 @@ export const appSettingsSchema = z.object({
   paymentTypes: nonEmptyList("payment type"),
   highlightSizes: z.array(z.string().trim().min(1)),
   defaultRemarks: z.string(),
+  maintenanceMode: z.boolean().optional(),
 });
 
 export type AppSettingsInput = z.infer<typeof appSettingsSchema>;

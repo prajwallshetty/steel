@@ -35,7 +35,7 @@ export function PWAProvider({ children }: { readonly children: React.ReactNode }
                   </div>
                   <div>
                     <p className="text-sm font-bold">New Version Available</p>
-                    <p className="text-xs text-muted-foreground">An update to LSC Alloys ERP is ready.</p>
+                    <p className="text-xs text-muted-foreground">An update to ERP is ready.</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 justify-end">

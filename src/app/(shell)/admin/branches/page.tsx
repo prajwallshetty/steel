@@ -9,8 +9,16 @@ import { PageHeading } from "@/components/layout/PageHeading";
 import { BranchDialog } from "@/components/branches/BranchDialog";
 import { ArchiveBranchButton } from "@/components/branches/ArchiveBranchButton";
 
-export const metadata: Metadata = { title: "Branches" };
+export const metadata: Metadata = { title: "Divisions" };
 export const dynamic = "force-dynamic";
+
+function formatCurrency(amount: number) {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
 
 export default async function BranchesPage() {
   const user = await requireAnyPermission([
@@ -24,11 +32,11 @@ export default async function BranchesPage() {
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6">
       <PageHeading
-        title="Branches"
+        title="Divisions"
         description={
           isSuper
-            ? "Every branch in the organisation. Add as many as you need — nothing in the system is hardcoded to a fixed set."
-            : "Your branch details."
+            ? "Manage all divisions in the organisation. Configure starting balances, track cash in hand, and view division-wise daily closing balances."
+            : "Your division details."
         }
         actions={
           hasPermission(user, PERMISSIONS.BRANCH_CREATE) ? (
@@ -39,16 +47,16 @@ export default async function BranchesPage() {
 
       <Card className="overflow-hidden py-0">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px] text-sm">
+          <table className="w-full min-w-[1000px] text-sm">
             <thead>
               <tr className="border-b bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
                 <th scope="col" className="px-4 py-3 text-left font-semibold">Code</th>
-                <th scope="col" className="px-4 py-3 text-left font-semibold">Name</th>
+                <th scope="col" className="px-4 py-3 text-left font-semibold">Division Name</th>
                 <th scope="col" className="px-4 py-3 text-left font-semibold">State</th>
-                <th scope="col" className="px-4 py-3 text-left font-semibold">GSTIN</th>
-                <th scope="col" className="px-4 py-3 text-left font-semibold">Contact</th>
+                <th scope="col" className="px-4 py-3 text-right font-semibold">Starting Bal.</th>
+                <th scope="col" className="px-4 py-3 text-right font-semibold">Closing Bal.</th>
+                <th scope="col" className="px-4 py-3 text-right font-semibold">Cash in Hand</th>
                 <th scope="col" className="px-4 py-3 text-right font-semibold">Users</th>
-                <th scope="col" className="px-4 py-3 text-right font-semibold">Quotations</th>
                 <th scope="col" className="px-4 py-3 text-left font-semibold">Status</th>
                 <th scope="col" className="px-4 py-3 text-right font-semibold">
                   <span className="sr-only">Actions</span>
@@ -66,18 +74,17 @@ export default async function BranchesPage() {
                   </td>
                   <td className="px-4 py-3 font-medium">{branch.name}</td>
                   <td className="px-4 py-3 text-muted-foreground">{branch.state}</td>
-                  <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                    {branch.gstNumber ?? "—"}
+                  <td className="px-4 py-3 text-right font-semibold tabular-nums text-foreground">
+                    {formatCurrency(branch.startingBalance)}
                   </td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground">
-                    {branch.phone ?? "—"}
-                    {branch.email && <span className="block">{branch.email}</span>}
+                  <td className="px-4 py-3 text-right font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+                    {formatCurrency(branch.closingBalance)}
+                  </td>
+                  <td className="px-4 py-3 text-right font-bold tabular-nums text-blue-600 dark:text-blue-400">
+                    {formatCurrency(branch.cashInHand)}
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums">
                     {branch.userCount}
-                  </td>
-                  <td className="px-4 py-3 text-right tabular-nums">
-                    {branch.quotationCount}
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge status={branch.status} kind="generic" />
@@ -97,6 +104,7 @@ export default async function BranchesPage() {
                             phone: branch.phone ?? "",
                             email: branch.email ?? "",
                             logoUrl: "",
+                            startingBalance: branch.startingBalance,
                             status: branch.status,
                           }}
                         />

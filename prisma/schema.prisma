@@ -122,6 +122,7 @@ model Branch {
   phone     String?
   email     String?
   logoUrl   String?
+  startingBalance Decimal      @default(0) @db.Decimal(16, 2)
   status    BranchStatus @default(ACTIVE)
 
   users          User[]

@@ -33,6 +33,7 @@ export function BranchDialog({
       phone: branch?.phone ?? "",
       email: branch?.email ?? "",
       logoUrl: branch?.logoUrl ?? "",
+      startingBalance: branch?.startingBalance ?? 0,
       status: branch?.status ?? "ACTIVE",
     },
   });
@@ -44,23 +45,23 @@ export function BranchDialog({
     <EntityDialog
       trigger={
         editing ? (
-          <Button variant="ghost" size="icon" aria-label="Edit branch">
+          <Button variant="ghost" size="icon" aria-label="Edit division">
             <Pencil />
           </Button>
         ) : (
           <Button>
             <Plus />
-            New branch
+            New division
           </Button>
         )
       }
-      title={editing ? "Edit branch" : "New branch"}
-      description="Branches are the tenancy boundary. Users, customers and quotations all belong to exactly one."
+      title={editing ? "Edit division" : "New division"}
+      description="Divisions maintain separate financial records, cash in hand, and daily opening/closing balances."
       form={form}
       onSubmit={(values) =>
         editing ? updateBranchAction(branch!.id, values) : createBranchAction(values)
       }
-      successMessage={editing ? "Branch updated" : "Branch created"}
+      successMessage={editing ? "Division updated" : "Division created"}
       wide
     >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -79,11 +80,20 @@ export function BranchDialog({
         </Field>
 
         <Field label="Name" error={errors.name?.message} required>
-          <Input {...register("name")} placeholder="Mangalore" />
+          <Input {...register("name")} placeholder="Mangalore Division" />
         </Field>
 
         <Field label="State" error={errors.state?.message} required>
           <Input {...register("state")} placeholder="Karnataka" />
+        </Field>
+
+        <Field label="Starting Balance (₹)" error={errors.startingBalance?.message} required hint="Initial baseline balance for this division">
+          <Input
+            {...register("startingBalance")}
+            type="number"
+            step="0.01"
+            placeholder="50000"
+          />
         </Field>
 
         <Field label="GSTIN" error={errors.gstNumber?.message}>

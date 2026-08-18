@@ -1,5 +1,5 @@
 import "server-only";
-import { AuditAction, BranchStatus, NotificationType, Role } from "@prisma/client";
+import { AuditAction, BranchStatus, NotificationType, Prisma, Role } from "@prisma/client";
 import { prisma, NOT_DELETED } from "@/lib/database/prisma";
 import { recordAudit, diffFields } from "@/modules/audit/audit-service";
 import { notifySuperAdmins } from "@/modules/notifications/notification-service";
@@ -28,6 +28,9 @@ export interface BranchSummary {
   readonly email: string | null;
   readonly address: string | null;
   readonly status: BranchStatus;
+  readonly startingBalance: number;
+  readonly closingBalance: number;
+  readonly cashInHand: number;
   readonly userCount: number;
   readonly quotationCount: number;
   readonly createdAt: string;
@@ -59,20 +62,79 @@ export async function listBranches(
     },
   });
 
-  return branches.map((branch) => ({
-    id: branch.id,
-    code: branch.code,
-    name: branch.name,
-    state: branch.state,
-    gstNumber: branch.gstNumber,
-    phone: branch.phone,
-    email: branch.email,
-    address: branch.address,
-    status: branch.status,
-    userCount: branch._count.users,
-    quotationCount: branch._count.quotations,
-    createdAt: branch.createdAt.toISOString(),
-  }));
+  const branchIds = branches.map((b) => b.id);
+  const SETTLED = ["RECEIVED", "CLEARED"] as const;
+
+  const [settledLedger, cashLedger] = await Promise.all([
+    prisma.cashLedgerEntry.groupBy({
+      by: ["branchId", "direction"],
+      where: {
+        branchId: { in: branchIds },
+        status: { in: [...SETTLED] },
+        ...NOT_DELETED,
+      },
+      _sum: { amount: true },
+    }),
+    prisma.cashLedgerEntry.groupBy({
+      by: ["branchId", "direction"],
+      where: {
+        branchId: { in: branchIds },
+        status: { in: [...SETTLED] },
+        paymentMethod: "CASH",
+        ...NOT_DELETED,
+      },
+      _sum: { amount: true },
+    }),
+  ]);
+
+  const settledMap = new Map<string, { credit: number; debit: number }>();
+  for (const row of settledLedger) {
+    const existing = settledMap.get(row.branchId) ?? { credit: 0, debit: 0 };
+    if (row.direction === "CREDIT") {
+      existing.credit += Number(row._sum.amount ?? 0);
+    } else {
+      existing.debit += Number(row._sum.amount ?? 0);
+    }
+    settledMap.set(row.branchId, existing);
+  }
+
+  const cashMap = new Map<string, { credit: number; debit: number }>();
+  for (const row of cashLedger) {
+    const existing = cashMap.get(row.branchId) ?? { credit: 0, debit: 0 };
+    if (row.direction === "CREDIT") {
+      existing.credit += Number(row._sum.amount ?? 0);
+    } else {
+      existing.debit += Number(row._sum.amount ?? 0);
+    }
+    cashMap.set(row.branchId, existing);
+  }
+
+  return branches.map((branch) => {
+    const startingBalance = Number(branch.startingBalance ?? 0);
+    const settled = settledMap.get(branch.id) ?? { credit: 0, debit: 0 };
+    const cash = cashMap.get(branch.id) ?? { credit: 0, debit: 0 };
+
+    const closingBalance = startingBalance + settled.credit - settled.debit;
+    const cashInHand = startingBalance + cash.credit - cash.debit;
+
+    return {
+      id: branch.id,
+      code: branch.code,
+      name: branch.name,
+      state: branch.state,
+      gstNumber: branch.gstNumber,
+      phone: branch.phone,
+      email: branch.email,
+      address: branch.address,
+      status: branch.status,
+      startingBalance,
+      closingBalance,
+      cashInHand,
+      userCount: branch._count.users,
+      quotationCount: branch._count.quotations,
+      createdAt: branch.createdAt.toISOString(),
+    };
+  });
 }
 
 /** Active branches, for pickers. */
@@ -119,6 +181,7 @@ export async function createBranch(
       phone: input.phone?.trim() || null,
       email: input.email?.trim() || null,
       logoUrl: input.logoUrl?.trim() || null,
+      startingBalance: new Prisma.Decimal(input.startingBalance ?? 0),
       status: input.status,
       createdById: subject.id,
       updatedById: subject.id,
@@ -172,6 +235,7 @@ export async function updateBranch(
     phone: input.phone?.trim() || null,
     email: input.email?.trim() || null,
     logoUrl: input.logoUrl?.trim() || null,
+    startingBalance: new Prisma.Decimal(input.startingBalance ?? 0),
     status: input.status,
   };
 

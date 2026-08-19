@@ -50,6 +50,8 @@ export type QuotationEditorValues = z.infer<typeof editorSchema>;
 export interface OptionItem {
   readonly id: string;
   readonly name: string;
+  readonly city?: string | null;
+  readonly address?: string | null;
 }
 
 interface QuotationEditorProps {
@@ -513,6 +515,14 @@ function PickerField({
                 setValue("header.partyName", selected ? selected.name : "", {
                   shouldDirty: true,
                 });
+                if (selected) {
+                  const loc = (selected.city || selected.address || "").trim();
+                  if (loc) {
+                    setValue("header.location", loc.toUpperCase(), {
+                      shouldDirty: true,
+                    });
+                  }
+                }
               }
             }}
           >

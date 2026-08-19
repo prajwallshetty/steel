@@ -59,7 +59,7 @@ export default async function NewQuotationPage() {
           updatedAt: now,
         }}
         onSave={createQuotationAction}
-        customers={customers.map((c) => ({ id: c.id, name: c.name }))}
+        customers={customers.map((c) => ({ id: c.id, name: c.name, city: c.city, address: c.address }))}
         branches={branches.map((b) => ({ id: b.id, name: `${b.name} (${b.code})` }))}
         assignees={assignees.map((a) => ({ id: a.id, name: a.name }))}
         canSelectBranch={canSelectBranch}

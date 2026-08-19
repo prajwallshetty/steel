@@ -14,7 +14,7 @@ interface QuotationHeaderFieldsProps {
   readonly disabled?: boolean;
   readonly setValue: any;
   readonly getValues: any;
-  readonly customers: readonly { id: string; name: string }[];
+  readonly customers: readonly { id: string; name: string; city?: string | null; address?: string | null }[];
 }
 
 /** The eight header cells of the sheet, as a form. */
@@ -92,11 +92,19 @@ export function QuotationHeaderFields({
                 onChange={(e) => {
                   const val = e.target.value;
                   field.onChange(val);
-                  // Also set customerId in the form context if matched
+                  // Also set customerId and location in the form context if matched
                   const matchedCust = customers.find((c) => c.name === val);
                   setValue("customerId", matchedCust ? matchedCust.id : null, {
                     shouldDirty: true,
                   });
+                  if (matchedCust) {
+                    const loc = (matchedCust.city || matchedCust.address || "").trim();
+                    if (loc) {
+                      setValue("header.location", loc.toUpperCase(), {
+                        shouldDirty: true,
+                      });
+                    }
+                  }
                 }}
                 disabled={disabled}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"

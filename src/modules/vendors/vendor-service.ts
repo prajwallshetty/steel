@@ -99,10 +99,56 @@ export async function createVendor(
   input: VendorInput,
 ): Promise<{ id: string }> {
   const branchId = resolveWriteBranch(subject, input.branchId || null);
+  const nameTrimmed = input.name.trim();
+
+  // Check if a vendor with the same name already exists in this branch (active or soft-deleted)
+  const existing = await prisma.vendor.findFirst({
+    where: {
+      branchId,
+      name: { equals: nameTrimmed, mode: "insensitive" },
+    },
+  });
+
+  if (existing) {
+    if (existing.deletedAt === null) {
+      throw new BusinessRuleError(
+        `A vendor named "${nameTrimmed}" already exists in this branch.`,
+      );
+    }
+
+    // Soft-deleted vendor: restore and update with new information
+    const restored = await prisma.vendor.update({
+      where: { id: existing.id },
+      data: {
+        name: nameTrimmed,
+        phone: input.phone?.trim() || null,
+        email: input.email?.trim() || null,
+        gstNumber: input.gstNumber?.trim().toUpperCase() || null,
+        address: input.address?.trim() || null,
+        city: input.city?.trim() || null,
+        state: input.state?.trim() || null,
+        pin: input.pin?.trim() || null,
+        deletedAt: null,
+        updatedById: subject.id,
+      },
+    });
+
+    await recordAudit({
+      action: AuditAction.RESTORE,
+      entity: "Vendor",
+      entityId: restored.id,
+      summary: `Restored vendor ${restored.name}`,
+      userId: subject.id,
+      branchId,
+      newValue: { name: restored.name, gstNumber: restored.gstNumber },
+    });
+
+    return { id: restored.id };
+  }
 
   const vendor = await prisma.vendor.create({
     data: {
-      name: input.name.trim(),
+      name: nameTrimmed,
       phone: input.phone?.trim() || null,
       email: input.email?.trim() || null,
       gstNumber: input.gstNumber?.trim().toUpperCase() || null,
@@ -135,9 +181,26 @@ export async function updateVendor(
   input: VendorInput,
 ): Promise<{ id: string }> {
   const existing = await getVendor(subject, id);
+  const nameTrimmed = input.name.trim();
+
+  // Check if name collides with another vendor in the same branch
+  const duplicate = await prisma.vendor.findFirst({
+    where: {
+      branchId: existing.branchId,
+      name: { equals: nameTrimmed, mode: "insensitive" },
+      id: { not: id },
+      deletedAt: null,
+    },
+  });
+
+  if (duplicate) {
+    throw new BusinessRuleError(
+      `A vendor named "${nameTrimmed}" already exists in this branch.`,
+    );
+  }
 
   const data = {
-    name: input.name.trim(),
+    name: nameTrimmed,
     phone: input.phone?.trim() || null,
     email: input.email?.trim() || null,
     gstNumber: input.gstNumber?.trim().toUpperCase() || null,

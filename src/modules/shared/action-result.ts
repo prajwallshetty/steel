@@ -86,10 +86,20 @@ export function toActionError(error: unknown): ActionResult<never> {
     // P2002 is a unique-constraint violation; the target names the column, which
     // is far more actionable than "something went wrong".
     if (error.code === "P2002") {
-      const target = Array.isArray(error.meta?.target)
-        ? (error.meta.target as string[]).join(", ")
-        : "value";
-      return actionError(`That ${humanise(target)} is already in use.`);
+      const rawTarget = error.meta?.target;
+      let fieldName = "name";
+      if (Array.isArray(rawTarget)) {
+        const filtered = (rawTarget as string[]).filter((t) => t !== "branchId");
+        fieldName = filtered.map(humanise).join(", ") || "name";
+      } else if (typeof rawTarget === "string") {
+        if (rawTarget.includes("name")) fieldName = "name";
+        else if (rawTarget.includes("gstNumber")) fieldName = "GSTIN";
+        else if (rawTarget.includes("phone")) fieldName = "phone number";
+        else if (rawTarget.includes("email")) fieldName = "email address";
+        else if (rawTarget.includes("username")) fieldName = "username";
+        else if (rawTarget.includes("code")) fieldName = "code";
+      }
+      return actionError(`A record with this ${fieldName} already exists.`);
     }
     if (error.code === "P2003") {
       return actionError(

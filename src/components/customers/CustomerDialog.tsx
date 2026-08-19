@@ -42,7 +42,7 @@ export function CustomerDialog({
       gstNumber: customer?.gstNumber ?? "",
       address: customer?.address ?? "",
       city: customer?.city ?? "",
-      state: customer?.state ?? "",
+      state: customer?.state || "Maharashtra",
       pin: customer?.pin ?? "",
       branchId: customer?.branchId ?? defaultBranchId ?? "",
     },
@@ -102,7 +102,7 @@ export function CustomerDialog({
         </Field>
 
         <Field label="State" error={errors.state?.message}>
-          <Input {...register("state")} />
+          <Input {...register("state")} readOnly className="bg-muted" />
         </Field>
 
         <Field label="PIN" error={errors.pin?.message}>

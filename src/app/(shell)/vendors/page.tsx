@@ -146,10 +146,10 @@ export default async function VendorsPage({ searchParams }: PageProps) {
                               phone: vendor.phone ?? "",
                               email: vendor.email ?? "",
                               gstNumber: vendor.gstNumber ?? "",
-                              address: "",
+                              address: vendor.address ?? "",
                               city: vendor.city ?? "",
                               state: vendor.state ?? "",
-                              pin: "",
+                              pin: vendor.pin ?? "",
                               branchId: vendor.branchId,
                             }}
                             branches={branchOptions}

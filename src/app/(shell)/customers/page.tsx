@@ -162,10 +162,10 @@ export default async function CustomersPage({ searchParams }: PageProps) {
                               phone: customer.phone ?? "",
                               email: customer.email ?? "",
                               gstNumber: customer.gstNumber ?? "",
-                              address: "",
+                              address: customer.address ?? "",
                               city: customer.city ?? "",
                               state: customer.state ?? "",
-                              pin: "",
+                              pin: customer.pin ?? "",
                               branchId: customer.branchId,
                             }}
                             branches={branchOptions}

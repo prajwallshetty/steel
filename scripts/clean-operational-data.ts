@@ -1,6 +1,5 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
-import bcrypt from "bcryptjs";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
@@ -33,7 +32,7 @@ const prisma = new PrismaClient({
 });
 
 async function cleanOperationalData() {
-  console.log("Starting operational data cleanup and user password reset...");
+  console.log("Starting operational data cleanup for Maharashtra-only scoping...");
 
   try {
     // 1. Delete Cash Ledger Entries
@@ -56,30 +55,51 @@ async function cleanOperationalData() {
     const deletedQuotations = await prisma.quotation.deleteMany({});
     console.log(`Deleted ${deletedQuotations.count} Quotation records.`);
 
-    // 6. Delete Customers
-    const deletedCustomers = await prisma.customer.deleteMany({});
-    console.log(`Deleted ${deletedCustomers.count} Customer records.`);
+    // 6. Identify Maharashtra Branch
+    const maharashtraBranch = await prisma.branch.findUnique({
+      where: { code: "MAH" },
+    });
 
-    // 7. Delete Vendors
-    const deletedVendors = await prisma.vendor.deleteMany({});
-    console.log(`Deleted ${deletedVendors.count} Vendor records.`);
+    if (!maharashtraBranch) {
+      throw new Error("Maharashtra branch (MAH) not found in database!");
+    }
 
-    // 8. Reset Sequence Counters
+    // 7. Delete Customers not belonging to Maharashtra branch
+    const deletedCustomers = await prisma.customer.deleteMany({
+      where: {
+        branchId: { not: maharashtraBranch.id },
+      },
+    });
+    console.log(`Deleted ${deletedCustomers.count} Customer records not in Maharashtra branch.`);
+
+    // 8. Delete Vendors not belonging to Maharashtra branch
+    const deletedVendors = await prisma.vendor.deleteMany({
+      where: {
+        branchId: { not: maharashtraBranch.id },
+      },
+    });
+    console.log(`Deleted ${deletedVendors.count} Vendor records not in Maharashtra branch.`);
+
+    // 9. Update remaining Maharashtra customers and vendors to have state = "Maharashtra"
+    const updatedCustomers = await prisma.customer.updateMany({
+      where: { branchId: maharashtraBranch.id },
+      data: { state: "Maharashtra" },
+    });
+    console.log(`Updated state to 'Maharashtra' for ${updatedCustomers.count} customers.`);
+
+    const updatedVendors = await prisma.vendor.updateMany({
+      where: { branchId: maharashtraBranch.id },
+      data: { state: "Maharashtra" },
+    });
+    console.log(`Updated state to 'Maharashtra' for ${updatedVendors.count} vendors.`);
+
+    // 10. Reset Sequence Counters
     const resetSequences = await prisma.sequence.updateMany({
       data: { value: 0 },
     });
     console.log(`Reset ${resetSequences.count} sequence counters to 0.`);
 
-    // 9. Reset All User Passwords to "Branch@2026"
-    const newPasswordHash = await bcrypt.hash("Branch@2026", 12);
-    const updatedUsers = await prisma.user.updateMany({
-      data: {
-        passwordHash: newPasswordHash,
-      },
-    });
-    console.log(`Reset password to 'Branch@2026' for ${updatedUsers.count} users across all branches and roles.`);
-
-    console.log("Operational data cleanup & password reset complete!");
+    console.log("Operational data cleanup complete!");
   } catch (error) {
     console.error("Operational data cleanup failed:", error);
     process.exit(1);

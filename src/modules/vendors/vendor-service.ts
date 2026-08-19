@@ -19,8 +19,10 @@ export interface VendorSummary {
   readonly phone: string | null;
   readonly email: string | null;
   readonly gstNumber: string | null;
+  readonly address: string | null;
   readonly city: string | null;
   readonly state: string | null;
+  readonly pin: string | null;
   readonly branchId: string;
   readonly branchName: string;
   readonly createdAt: string;
@@ -61,8 +63,10 @@ export async function listVendors(
     phone: vendor.phone,
     email: vendor.email,
     gstNumber: vendor.gstNumber,
+    address: vendor.address,
     city: vendor.city,
     state: vendor.state,
+    pin: vendor.pin,
     branchId: vendor.branchId,
     branchName: vendor.branch.name,
     createdAt: vendor.createdAt.toISOString(),

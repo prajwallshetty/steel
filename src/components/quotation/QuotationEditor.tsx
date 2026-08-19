@@ -352,6 +352,7 @@ export function QuotationEditor({
             options={customers}
             allowNone
             hint="Links the quotation to a customer record for reporting."
+            setValue={setValue}
           />
           {canAssign && (
             <PickerField
@@ -380,6 +381,7 @@ export function QuotationEditor({
             settings={settings}
             setValue={setValue}
             getValues={getValues}
+            customers={customers}
           />
 
         </CardContent>
@@ -478,6 +480,7 @@ function PickerField({
   required = false,
   hint,
   error,
+  setValue,
 }: {
   readonly control: any;
   readonly name: "branchId" | "customerId" | "assignedToId";
@@ -488,6 +491,7 @@ function PickerField({
   readonly required?: boolean;
   readonly hint?: string;
   readonly error?: string;
+  readonly setValue?: any;
 }) {
   return (
     <div className="space-y-1.5">
@@ -501,9 +505,16 @@ function PickerField({
         render={({ field }) => (
           <Select
             value={field.value || (allowNone ? NONE : "")}
-            onValueChange={(value) =>
-              field.onChange(value === NONE ? null : value)
-            }
+            onValueChange={(value) => {
+              const targetVal = value === NONE ? null : value;
+              field.onChange(targetVal);
+              if (name === "customerId" && setValue) {
+                const selected = options.find((opt) => opt.id === targetVal);
+                setValue("header.partyName", selected ? selected.name : "", {
+                  shouldDirty: true,
+                });
+              }
+            }}
           >
             <SelectTrigger className="w-full">
               <SelectValue placeholder={placeholder}>

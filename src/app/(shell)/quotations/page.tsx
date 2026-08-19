@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { FilterBar } from "@/components/shared/FilterBar";
 import { PageHeading } from "@/components/layout/PageHeading";
+import { EDITABLE_STATUSES } from "@/types/quotation";
 
 export const metadata: Metadata = { title: "Quotations" };
 export const dynamic = "force-dynamic";
@@ -46,6 +47,7 @@ export default async function QuotationsPage({ searchParams }: PageProps) {
     canSeeAllBranches ? listSelectableBranches(user) : Promise.resolve([]),
   ]);
 
+  const canUpdate = hasPermission(user, PERMISSIONS.QUOTATION_UPDATE_OWN);
   const grouping = settings.display.numberGrouping;
 
   return (
@@ -186,14 +188,26 @@ export default async function QuotationsPage({ searchParams }: PageProps) {
                     </td>
 
                     <td className="px-4 py-3 text-right">
-                      <Button
-                        variant="ghost"
-                        size="xs"
-                        className="opacity-0 group-hover:opacity-100 group-hover:bg-accent/80 transition-all font-semibold"
-                        render={<Link href={`/quotations/${quotation.id}`} />}
-                      >
-                        View
-                      </Button>
+                      <div className="flex justify-end gap-1.5">
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          className="opacity-0 group-hover:opacity-100 group-hover:bg-accent/80 transition-all font-semibold"
+                          render={<Link href={`/quotations/${quotation.id}`} />}
+                        >
+                          View
+                        </Button>
+                        {canUpdate && EDITABLE_STATUSES.includes(quotation.status) && (
+                          <Button
+                            variant="ghost"
+                            size="xs"
+                            className="opacity-0 group-hover:opacity-100 hover:bg-accent/80 transition-all font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+                            render={<Link href={`/quotations/${quotation.id}/edit`} />}
+                          >
+                            Edit
+                          </Button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

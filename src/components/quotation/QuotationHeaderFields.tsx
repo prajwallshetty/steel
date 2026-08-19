@@ -14,6 +14,7 @@ interface QuotationHeaderFieldsProps {
   readonly disabled?: boolean;
   readonly setValue: any;
   readonly getValues: any;
+  readonly customers: readonly { id: string; name: string }[];
 }
 
 /** The eight header cells of the sheet, as a form. */
@@ -24,6 +25,7 @@ export function QuotationHeaderFields({
   disabled = false,
   setValue,
   getValues,
+  customers,
 }: QuotationHeaderFieldsProps) {
   const headerErrors = errors.header;
   const basicRateLabelValue = useWatch({ control, name: "header.basicRateLabel" }) || "";
@@ -78,14 +80,41 @@ export function QuotationHeaderFields({
         <Controller
           control={control}
           name="header.partyName"
-          render={({ field }) => (
-            <Input
-              {...field}
-              disabled={disabled}
-              className="uppercase"
-              placeholder="SADGURU TRADERS"
-            />
-          )}
+          render={({ field }) => {
+            const hasMatched = customers.some(
+              (c) => c.name.toUpperCase() === (field.value || "").toUpperCase()
+            );
+            const showFallback = field.value && !hasMatched;
+
+            return (
+              <select
+                value={field.value || ""}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  field.onChange(val);
+                  // Also set customerId in the form context if matched
+                  const matchedCust = customers.find((c) => c.name === val);
+                  setValue("customerId", matchedCust ? matchedCust.id : null, {
+                    shouldDirty: true,
+                  });
+                }}
+                disabled={disabled}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="">Select a customer</option>
+                {showFallback && (
+                  <option value={field.value}>
+                    {field.value} (Legacy / Not Linked)
+                  </option>
+                )}
+                {customers.map((c) => (
+                  <option key={c.id} value={c.name}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            );
+          }}
         />
       </Field>
 

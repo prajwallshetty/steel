@@ -42,7 +42,7 @@ export function VendorDialog({
       gstNumber: vendor?.gstNumber ?? "",
       address: vendor?.address ?? "",
       city: vendor?.city ?? "",
-      state: vendor?.state ?? "",
+      state: vendor?.state || "Maharashtra",
       pin: vendor?.pin ?? "",
       branchId: vendor?.branchId ?? defaultBranchId ?? "",
     },
@@ -102,7 +102,7 @@ export function VendorDialog({
         </Field>
 
         <Field label="State" error={errors.state?.message}>
-          <Input {...register("state")} />
+          <Input {...register("state")} readOnly className="bg-muted" />
         </Field>
 
         <Field label="PIN" error={errors.pin?.message}>

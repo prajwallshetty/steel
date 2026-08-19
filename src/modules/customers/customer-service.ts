@@ -28,8 +28,10 @@ export interface CustomerSummary {
   readonly phone: string | null;
   readonly email: string | null;
   readonly gstNumber: string | null;
+  readonly address: string | null;
   readonly city: string | null;
   readonly state: string | null;
+  readonly pin: string | null;
   readonly branchId: string;
   readonly branchName: string;
   readonly quotationCount: number;
@@ -72,8 +74,10 @@ export async function listCustomers(
     phone: customer.phone,
     email: customer.email,
     gstNumber: customer.gstNumber,
+    address: customer.address,
     city: customer.city,
     state: customer.state,
+    pin: customer.pin,
     branchId: customer.branchId,
     branchName: customer.branch.name,
     quotationCount: customer._count.quotations,

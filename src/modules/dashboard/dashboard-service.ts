@@ -23,6 +23,7 @@ export interface DashboardMetrics {
   readonly pendingQuotations: number;
   readonly totalQuotations: number;
   readonly totalCustomers: number;
+  readonly totalVendors: number;
   readonly collections: number;
   readonly pendingPayments: number;
   readonly activeUsers: number | null;
@@ -141,6 +142,7 @@ export const getDashboardMetrics = cache(
     pendingCount,
     totalCount,
     customerCount,
+    vendorCount,
     collections,
     pendingPayments,
     userCount,
@@ -162,6 +164,8 @@ export const getDashboardMetrics = cache(
     totalReceivedOnInvoicesRes,
     totalBillsRes,
     totalPaidOnBillsRes,
+    customerDuesRes,
+    vendorBalanceRes,
     cashFlowEntries,
     todayTransactionsEntries,
   ] = await Promise.all([
@@ -211,6 +215,12 @@ export const getDashboardMetrics = cache(
       },
     }),
     prisma.customer.count({
+      where: {
+        ...NOT_DELETED,
+        ...(isSuper ? {} : { branchId: subject.branchId ?? "__none__" }),
+      },
+    }),
+    prisma.vendor.count({
       where: {
         ...NOT_DELETED,
         ...(isSuper ? {} : { branchId: subject.branchId ?? "__none__" }),
@@ -455,6 +465,24 @@ export const getDashboardMetrics = cache(
       },
     }),
 
+    // Customer Dues
+    prisma.customer.aggregate({
+      _sum: { currentDues: true },
+      where: {
+        ...NOT_DELETED,
+        ...(isSuper ? {} : { branchId: subject.branchId ?? "__none__" }),
+      },
+    }),
+
+    // Vendor Balances / Liabilities
+    prisma.vendor.aggregate({
+      _sum: { balance: true },
+      where: {
+        ...NOT_DELETED,
+        ...(isSuper ? {} : { branchId: subject.branchId ?? "__none__" }),
+      },
+    }),
+
     // Cash flow entries for the period
     prisma.cashLedgerEntry.findMany({
       where: {
@@ -565,19 +593,6 @@ export const getDashboardMetrics = cache(
   const branchNameById = new Map(branchNames.map((b) => [b.id, b.name]));
   const managerNameById = new Map(managerNames.map((u) => [u.id, u.name]));
 
-  const cashBalance = Number(cashCreditsRes._sum?.amount ?? 0) - Number(cashDebitsRes._sum?.amount ?? 0);
-  const bankBalance = Number(bankCreditsRes._sum?.amount ?? 0) - Number(bankDebitsRes._sum?.amount ?? 0);
-
-  const outstandingReceivables = Math.max(
-    0,
-    Number(totalInvoicedRes._sum?.grandTotal ?? 0) - Number(totalReceivedOnInvoicesRes._sum?.amount ?? 0)
-  );
-
-  const outstandingPayables = Math.max(
-    0,
-    Number(totalBillsRes._sum?.amount ?? 0) - Number(totalPaidOnBillsRes._sum?.amount ?? 0)
-  );
-
   // --- Division Financial Overview Calculations ---
   const activeDivisions = await prisma.branch.findMany({
     where: {
@@ -588,6 +603,24 @@ export const getDashboardMetrics = cache(
     select: { id: true, name: true, code: true, startingBalance: true },
     orderBy: { name: "asc" },
   });
+
+  const totalStartingBalance = activeDivisions.reduce((sum, d) => sum + Number(d.startingBalance ?? 0), 0);
+  const cashBalance = totalStartingBalance + Number(cashCreditsRes._sum?.amount ?? 0) - Number(cashDebitsRes._sum?.amount ?? 0);
+  const bankBalance = Number(bankCreditsRes._sum?.amount ?? 0) - Number(bankDebitsRes._sum?.amount ?? 0);
+
+  const outstandingReceivables =
+    Number(customerDuesRes._sum?.currentDues ?? 0) +
+    Math.max(
+      0,
+      Number(totalInvoicedRes._sum?.grandTotal ?? 0) - Number(totalReceivedOnInvoicesRes._sum?.amount ?? 0)
+    );
+
+  const outstandingPayables =
+    Number(vendorBalanceRes._sum?.balance ?? 0) +
+    Math.max(
+      0,
+      Number(totalBillsRes._sum?.amount ?? 0) - Number(totalPaidOnBillsRes._sum?.amount ?? 0)
+    );
 
   const divisionIds = activeDivisions.map((d) => d.id);
 
@@ -702,6 +735,7 @@ export const getDashboardMetrics = cache(
     pendingQuotations: pendingCount,
     totalQuotations: totalCount,
     totalCustomers: customerCount,
+    totalVendors: vendorCount,
     collections: Number(collections._sum?.amount ?? 0),
     pendingPayments: Number(pendingPayments._sum?.amount ?? 0),
     activeUsers: userCount,

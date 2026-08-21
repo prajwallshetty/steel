@@ -168,6 +168,7 @@ export async function listLedger(
       orderBy: [{ entryDate: "asc" }, { createdAt: "asc" }],
       include: {
         customer: { select: { name: true } },
+        vendor: { select: { name: true } },
         quotation: { select: { reference: true } },
         branch: { select: { name: true } },
         createdBy: { select: { name: true } },
@@ -210,7 +211,7 @@ export async function listLedger(
       particular: entry.particular,
       note: entry.note,
       status: entry.status,
-      customerName: entry.customer?.name ?? null,
+      customerName: entry.customer?.name ?? entry.vendor?.name ?? entry.partyName ?? null,
       quotationReference: entry.quotation?.reference ?? null,
       branchName: entry.branch.name,
       createdByName: entry.createdBy?.name ?? "System",

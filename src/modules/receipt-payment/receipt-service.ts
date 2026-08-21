@@ -420,6 +420,8 @@ export async function getCustomerLedger(
 
   const branchCond = filters.branchId ? { branchId: filters.branchId } : {};
 
+  const baseOpeningBalance = Number(customer.garudaBalance || customer.currentDues || 0);
+
   // Compute opening balance (debit - credit) prior to filters.from
   let priorDebit = 0;
   let priorCredit = 0;
@@ -446,6 +448,7 @@ export async function getCustomerLedger(
           branchCond,
           { status: { in: [...SETTLED] } },
           { deletedAt: null },
+          { particular: { not: { contains: "Opening" } } },
           { entryDate: { lt: new Date(filters.from) } },
         ],
       },
@@ -461,7 +464,7 @@ export async function getCustomerLedger(
     });
   }
 
-  const openingBalance = priorDebit - priorCredit;
+  const openingBalance = baseOpeningBalance + priorDebit - priorCredit;
 
   // Fetch quotations (invoices) inside the period
   const invoices = await prisma.quotation.findMany({
@@ -485,6 +488,7 @@ export async function getCustomerLedger(
         branchCond,
         { status: { in: [...SETTLED] } },
         { deletedAt: null },
+        { particular: { not: { contains: "Opening" } } },
         filters.from ? { entryDate: { gte: new Date(filters.from) } } : {},
         filters.to ? { entryDate: { lte: new Date(filters.to) } } : {},
       ],
@@ -639,6 +643,8 @@ export async function getVendorLedger(
 
   const branchCond = filters.branchId ? { branchId: filters.branchId } : {};
 
+  const baseOpeningBalance = Number(vendor.balance || 0);
+
   // Compute opening balance prior to filters.from
   let priorDebit = 0; // paid to vendor
   let priorCredit = 0; // billed by vendor
@@ -664,6 +670,7 @@ export async function getVendorLedger(
           branchCond,
           { status: { in: [...SETTLED] } },
           { deletedAt: null },
+          { particular: { not: { contains: "Opening" } } },
           { entryDate: { lt: new Date(filters.from) } },
         ],
       },
@@ -679,7 +686,7 @@ export async function getVendorLedger(
     });
   }
 
-  const openingBalance = priorCredit - priorDebit;
+  const openingBalance = baseOpeningBalance + priorCredit - priorDebit;
 
   // Fetch bills inside the period
   const bills = await prisma.vendorBill.findMany({
@@ -702,6 +709,7 @@ export async function getVendorLedger(
         branchCond,
         { status: { in: [...SETTLED] } },
         { deletedAt: null },
+        { particular: { not: { contains: "Opening" } } },
         filters.from ? { entryDate: { gte: new Date(filters.from) } } : {},
         filters.to ? { entryDate: { lte: new Date(filters.to) } } : {},
       ],

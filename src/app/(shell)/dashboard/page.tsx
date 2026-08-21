@@ -56,11 +56,25 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   // Row 1: Core Financial Balances
   const balanceCards = [
     {
-      label: "Cash Balance",
+      label: "Cash in Hand",
       value: money(metrics.cashBalance),
-      hint: "Total settled cash in hand",
+      hint: "Total settled cash balance",
       icon: Wallet,
       tone: metrics.cashBalance >= 0 ? "text-emerald-600 bg-emerald-500/10" : "text-red-600 bg-red-500/10",
+    },
+    {
+      label: "Customer Receivables",
+      value: money(metrics.outstandingReceivables),
+      hint: "Customer dues & balances",
+      icon: ArrowDownLeft,
+      tone: "text-amber-600 bg-amber-500/10",
+    },
+    {
+      label: "Vendor Liabilities",
+      value: money(metrics.outstandingPayables),
+      hint: "Vendor payables & liabilities",
+      icon: ArrowUpRight,
+      tone: "text-rose-600 bg-rose-500/10",
     },
     {
       label: isFiltered ? "Total Incoming" : "Today's Incoming",
@@ -95,18 +109,25 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       tone: "text-neutral-700 bg-neutral-500/10",
     },
     {
-      label: "Pending Approvals",
-      value: String(metrics.pendingQuotations),
-      hint: metrics.pendingQuotations > 0 ? "Requires review" : "All cleared",
-      icon: FileClock,
-      tone: metrics.pendingQuotations > 0 ? "text-red-600 bg-red-500/10" : "text-neutral-500 bg-neutral-500/5",
-    },
-    {
       label: "Total Customers",
       value: String(metrics.totalCustomers),
       hint: "Active customer accounts",
       icon: Users,
       tone: "text-indigo-600 bg-indigo-500/10",
+    },
+    {
+      label: "Total Vendors",
+      value: String(metrics.totalVendors),
+      hint: "Active supplier accounts",
+      icon: Building2,
+      tone: "text-purple-600 bg-purple-500/10",
+    },
+    {
+      label: "Pending Approvals",
+      value: String(metrics.pendingQuotations),
+      hint: metrics.pendingQuotations > 0 ? "Requires review" : "All cleared",
+      icon: FileClock,
+      tone: metrics.pendingQuotations > 0 ? "text-red-600 bg-red-500/10" : "text-neutral-500 bg-neutral-500/5",
     },
   ];
 
@@ -247,23 +268,23 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 select-none">
           Financial Position
         </h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {balanceCards.map((card) => (
             <Card key={card.label} className="group/metric transition-all duration-300 hover:border-primary/20">
-              <CardContent className="flex items-center justify-between gap-4 py-6">
+              <CardContent className="flex items-center justify-between gap-4 py-5">
                 <div className="min-w-0 space-y-1">
                   <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                     {card.label}
                   </p>
-                  <p className="truncate text-2xl font-extrabold tracking-tight text-neutral-900 tabular-nums">
+                  <p className="truncate text-xl font-extrabold tracking-tight text-neutral-900 tabular-nums">
                     {card.value}
                   </p>
                   <p className="text-xs text-muted-foreground font-medium truncate">
                     {card.hint}
                   </p>
                 </div>
-                <div className={`flex size-12 shrink-0 items-center justify-center rounded-xl transition-all duration-300 ${card.tone}`}>
-                  <card.icon className="size-6" />
+                <div className={`flex size-11 shrink-0 items-center justify-center rounded-xl transition-all duration-300 ${card.tone}`}>
+                  <card.icon className="size-5" />
                 </div>
               </CardContent>
             </Card>
@@ -271,12 +292,12 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         </div>
       </div>
 
-      {/* Group 2: Today's Performance */}
+      {/* Group 2: Operational Activity */}
       <div>
         <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 select-none">
-          {isFiltered ? "Period's Performance" : "Today's Performance"}
+          {isFiltered ? "Period's Performance" : "Activity & Performance"}
         </h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {todayCards.map((card) => (
             <Card key={card.label} className="group/metric transition-all duration-300 hover:border-primary/20">
               <CardContent className="flex items-center justify-between gap-4 py-5">

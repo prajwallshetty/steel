@@ -8,10 +8,11 @@ import {
   runAction,
   type ActionResult,
 } from "@/modules/shared/action-result";
-import { staffSchema } from "./staff-schema";
+import { staffPaymentSchema, staffSchema } from "./staff-schema";
 import {
   createStaff,
   deleteStaff,
+  recordStaffTransaction,
   updateStaff,
 } from "./staff-service";
 
@@ -46,5 +47,18 @@ export async function deleteStaffAction(
     await deleteStaff(user, id);
     revalidatePath("/staff");
     return actionOk({ id });
+  });
+}
+
+export async function recordStaffTransactionAction(
+  input: unknown,
+): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const user = await authorizeAction(PERMISSIONS.STAFF_UPDATE);
+    const result = await recordStaffTransaction(user, staffPaymentSchema.parse(input));
+    revalidatePath("/staff");
+    revalidatePath("/dashboard");
+    revalidatePath("/ledger");
+    return actionOk(result);
   });
 }

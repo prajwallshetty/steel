@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { FilterBar } from "@/components/shared/FilterBar";
 import { PageHeading } from "@/components/layout/PageHeading";
 import { StaffDialog } from "@/components/staff/StaffDialog";
+import { StaffPaymentDialog } from "@/components/staff/StaffPaymentDialog";
 import { StaffRowActions } from "@/components/staff/StaffRowActions";
 
 export const metadata: Metadata = { title: "Staff" };
@@ -38,6 +39,11 @@ export default async function StaffPage({ searchParams }: PageProps) {
     name: branch.name,
   }));
 
+  const staffOptions = staffMembers.map((s) => ({
+    id: s.id,
+    name: s.name,
+  }));
+
   const totalBalance = staffMembers.reduce((acc, s) => acc + (s.balance || 0), 0);
 
   return (
@@ -46,12 +52,8 @@ export default async function StaffPage({ searchParams }: PageProps) {
         title="Staff"
         description={`${staffMembers.length} staff member${staffMembers.length === 1 ? "" : "s"} · Net Staff Balance: ${totalBalance < 0 ? `-₹${Math.abs(totalBalance).toLocaleString("en-IN")}` : `₹${totalBalance.toLocaleString("en-IN")}`}`}
         actions={
-          canCreate ? (
-            <StaffDialog
-              branches={branchOptions}
-              canSelectBranch={isSuper}
-              defaultBranchId={user.branchId}
-            />
+          canUpdate || canCreate ? (
+            <StaffPaymentDialog staffList={staffOptions} />
           ) : undefined
         }
       />

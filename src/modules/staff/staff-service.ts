@@ -1,7 +1,8 @@
 import "server-only";
-import { AuditAction } from "@prisma/client";
+import { AuditAction, LedgerDirection, LedgerStatus, Prisma } from "@prisma/client";
 import { prisma, NOT_DELETED } from "@/lib/database/prisma";
 import { recordAudit, diffFields } from "@/modules/audit/audit-service";
+import { formatReference, nextSequenceValue } from "@/modules/shared/sequence";
 import {
   BusinessRuleError,
   RecordNotFoundError,
@@ -11,7 +12,7 @@ import {
   resolveWriteBranch,
   type ScopeSubject,
 } from "@/modules/permissions/scope";
-import type { StaffInput } from "./staff-schema";
+import type { StaffInput, StaffPaymentInput } from "./staff-schema";
 
 export interface StaffSummary {
   readonly id: string;
@@ -251,4 +252,82 @@ export async function deleteStaff(
     branchId: existing.branchId,
     oldValue: { name: existing.name },
   });
+}
+
+export async function recordStaffTransaction(
+  subject: ScopeSubject,
+  input: StaffPaymentInput,
+): Promise<{ id: string }> {
+  const staff = await getStaff(subject, input.staffId);
+  const branchId = staff.branchId;
+
+  const branch = await prisma.branch.findFirst({
+    where: { id: branchId, ...NOT_DELETED },
+    select: { code: true, name: true, status: true },
+  });
+  if (!branch) throw new RecordNotFoundError("Branch");
+  if (branch.status !== "ACTIVE") {
+    throw new BusinessRuleError(`Branch ${branch.name} is not active.`);
+  }
+
+  const direction = input.type === "CASH_OUT" ? LedgerDirection.DEBIT : LedgerDirection.CREDIT;
+  const year = Number(input.entryDate.slice(0, 4));
+  const seqKind = input.type === "CASH_OUT" ? "PAYMENT" : "RECEIPT";
+
+  const entry = await prisma.$transaction(async (tx) => {
+    const serial = await nextSequenceValue(branchId, seqKind, year, tx);
+    const reference = formatReference(branch.code, seqKind, year, serial);
+
+    const ledgerEntry = await tx.cashLedgerEntry.create({
+      data: {
+        reference,
+        entryDate: new Date(input.entryDate),
+        branchId,
+        staffId: staff.id,
+        partyType: "EMPLOYEE",
+        partyName: staff.name,
+        direction,
+        amount: new Prisma.Decimal(input.amount),
+        paymentMethod: input.paymentMethod as any,
+        referenceNo: input.referenceNo?.trim() || null,
+        particular: input.particular.trim(),
+        note: input.note?.trim() || null,
+        status: LedgerStatus.RECEIVED,
+        approvedById: subject.id,
+        approvedAt: new Date(),
+        createdById: subject.id,
+        updatedById: subject.id,
+      },
+    });
+
+    // CASH_OUT (DEBIT): paid money to staff -> balance = balance - amount
+    // CASH_IN (CREDIT): received money from staff -> balance = balance + amount
+    const balanceChange = input.type === "CASH_OUT" ? -input.amount : input.amount;
+    await tx.staff.update({
+      where: { id: staff.id },
+      data: {
+        balance: { increment: balanceChange },
+        updatedById: subject.id,
+      },
+    });
+
+    return ledgerEntry;
+  });
+
+  await recordAudit({
+    action: AuditAction.CREATE,
+    entity: "CashLedgerEntry",
+    entityId: entry.id,
+    summary: `Recorded ${input.type === "CASH_OUT" ? "payment" : "receipt"} of ₹${input.amount} for staff ${staff.name} (${entry.reference})`,
+    userId: subject.id,
+    branchId,
+    newValue: {
+      amount: input.amount,
+      staffName: staff.name,
+      type: input.type,
+      paymentMethod: input.paymentMethod,
+    },
+  });
+
+  return { id: entry.id };
 }

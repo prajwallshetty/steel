@@ -604,12 +604,52 @@ export const getDashboardMetrics = cache(
     orderBy: { name: "asc" },
   });
 
+  const [negativeCustomers, negativeVendors, negativeStaff] = await Promise.all([
+    prisma.customer.aggregate({
+      _sum: { garudaBalance: true },
+      where: {
+        AND: [
+          NOT_DELETED,
+          isSuper ? {} : { branchId: subject.branchId ?? "__none__" },
+          { garudaBalance: { lt: 0 } },
+        ],
+      },
+    }),
+    prisma.vendor.aggregate({
+      _sum: { balance: true },
+      where: {
+        AND: [
+          NOT_DELETED,
+          isSuper ? {} : { branchId: subject.branchId ?? "__none__" },
+          { balance: { lt: 0 } },
+        ],
+      },
+    }),
+    prisma.staff.aggregate({
+      _sum: { balance: true },
+      where: {
+        AND: [
+          NOT_DELETED,
+          isSuper ? {} : { branchId: subject.branchId ?? "__none__" },
+          { balance: { lt: 0 } },
+        ],
+      },
+    }),
+  ]);
+
+  const totalNegativeCustomerBalances = Math.abs(Number(negativeCustomers._sum?.garudaBalance ?? 0));
+  const totalNegativeVendorBalances = Math.abs(Number(negativeVendors._sum?.balance ?? 0));
+  const totalNegativeStaffBalances = Math.abs(Number(negativeStaff._sum?.balance ?? 0));
+
   const totalStartingBalance = activeDivisions.reduce((sum, d) => sum + Number(d.startingBalance ?? 0), 0);
   const cashBalance = totalStartingBalance + Number(cashCreditsRes._sum?.amount ?? 0) - Number(cashDebitsRes._sum?.amount ?? 0);
   const bankBalance = Number(bankCreditsRes._sum?.amount ?? 0) - Number(bankDebitsRes._sum?.amount ?? 0);
 
   const outstandingReceivables =
     Number(customerDuesRes._sum?.currentDues ?? 0) +
+    totalNegativeCustomerBalances +
+    totalNegativeVendorBalances +
+    totalNegativeStaffBalances +
     Math.max(
       0,
       Number(totalInvoicedRes._sum?.grandTotal ?? 0) - Number(totalReceivedOnInvoicesRes._sum?.amount ?? 0)

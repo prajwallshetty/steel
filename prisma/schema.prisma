@@ -236,6 +236,9 @@ model Customer {
   state    String?
   pin      String?
 
+  garudaBalance Decimal @default(0) @db.Decimal(16, 2)
+  currentDues   Decimal @default(0) @db.Decimal(16, 2)
+
   branchId String
   branch   Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
 
@@ -250,7 +253,7 @@ model Customer {
   createdBy   User?     @relation("CustomerCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy   User?     @relation("CustomerUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
-  @@unique([branchId, name])
+  @@index([branchId, name])
   @@index([branchId, deletedAt])
   @@map("customers")
 }
@@ -265,6 +268,8 @@ model Vendor {
   city     String?
   state    String?
   pin      String?
+
+  balance  Decimal @default(0) @db.Decimal(16, 2)
 
   branchId String
   branch   Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)

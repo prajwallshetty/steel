@@ -23,6 +23,7 @@ export interface VendorSummary {
   readonly city: string | null;
   readonly state: string | null;
   readonly pin: string | null;
+  readonly balance: number;
   readonly branchId: string;
   readonly branchName: string;
   readonly createdAt: string;
@@ -67,6 +68,7 @@ export async function listVendors(
     city: vendor.city,
     state: vendor.state,
     pin: vendor.pin,
+    balance: Number(vendor.balance),
     branchId: vendor.branchId,
     branchName: vendor.branch.name,
     createdAt: vendor.createdAt.toISOString(),
@@ -132,6 +134,7 @@ export async function createVendor(
         city: input.city?.trim() || null,
         state: input.state?.trim() || null,
         pin: input.pin?.trim() || null,
+        balance: input.balance ?? 0,
         deletedAt: null,
         updatedById: subject.id,
       },
@@ -160,6 +163,7 @@ export async function createVendor(
       city: input.city?.trim() || null,
       state: input.state?.trim() || null,
       pin: input.pin?.trim() || null,
+      balance: input.balance ?? 0,
       branchId,
       createdById: subject.id,
       updatedById: subject.id,
@@ -212,6 +216,7 @@ export async function updateVendor(
     city: input.city?.trim() || null,
     state: input.state?.trim() || null,
     pin: input.pin?.trim() || null,
+    balance: input.balance ?? 0,
   };
 
   await prisma.vendor.update({

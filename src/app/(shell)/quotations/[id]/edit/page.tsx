@@ -79,7 +79,7 @@ export default async function EditQuotationPage({ params }: PageProps) {
           updatedAt: quotation.updatedAt,
         }}
         onSave={updateQuotationAction.bind(null, id)}
-        customers={customers.map((c) => ({ id: c.id, name: c.name, city: c.city, address: c.address }))}
+        customers={customers.map((c) => ({ id: c.id, name: c.name }))}
         branches={branches.map((b) => ({ id: b.id, name: `${b.name} (${b.code})` }))}
         assignees={assignees.map((a) => ({ id: a.id, name: a.name }))}
         canSelectBranch={canSelectBranch}

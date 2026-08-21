@@ -34,123 +34,101 @@ const prisma = new PrismaClient({
 interface CustomerSeedItem {
   name: string;
   city: string | null;
+  garudaBalance: number;
+  currentDues: number;
 }
 
-const RAW_CUSTOMERS: CustomerSeedItem[] = [
-  // 37 Main Customers
-  { name: "BHAWANI STEEL", city: "PILKHOD" },
-  { name: "AAI ENTERPRISES", city: "CHIKLI" },
-  { name: "GEERISH STEEL", city: "KLP" },
-  { name: "KESHAV TRADERS", city: "TADAWALE" },
-  { name: "KISAN HARDWARE", city: "HATKANAGLE" },
-  { name: "KK TRADERS", city: "KURUNDAWAD" },
-  { name: "LOHIYA TRADERS", city: "AMBAJOGAI" },
-  { name: "MAHALAXMI STEEL", city: "KM" },
-  { name: "MALOO STEEL", city: "JAYSINGPUR" },
-  { name: "RN TRADERS", city: "UMERGA" },
-  { name: "ADI STEEL YARD", city: "ICHKARANJI" },
-  { name: "CHAMUNDA STEEL", city: "PATAN" },
-  { name: "KALIKA STEEL", city: "SATANA" },
-  { name: "MAHADEV STEEL", city: "PIMPALNER" },
-  { name: "MANIK HARDWARE", city: "ICHKARANJI" },
-  { name: "GANESH STEEL", city: "KHAPAR" },
-  { name: "MS GURUKRUPA", city: "RK NAGAR" },
-  { name: "JAY BHAWANI STEEL", city: "CHIPLUN" },
-  { name: "DHANLAXMI STEEL", city: "KUDASHI" },
-  { name: "ATTAR & SONS", city: "BALINGA" },
-  { name: "MAHAKALI TRADERS", city: "KELGHAR" },
-  { name: "JALARAM TRADERS", city: "AJARA" },
-  { name: "SOHAM TRADERS", city: "PACHWAD" },
-  { name: "SAYADRI TRADERS 2", city: "BONDAWADE" },
-  { name: "KP STEEL", city: "MERRAJ" },
-  { name: "SADGURU TRADERS", city: "GOTWADE" },
-  { name: "SHIVSHANKAR HW", city: "BHOKAR" },
-  { name: "MOHINI TRADERS", city: "TAKALI" },
-  { name: "JK STEEL", city: "ICHK" },
-  { name: "ASHAPURA STEEL", city: "MUDHOL" },
-  { name: "GANESH STEEL", city: "ARAG" },
-  { name: "BALUMAMA TRADERS", city: "NIDHORI" },
-  { name: "ARIHANT LB", city: "CHALISGAON" },
-  { name: "PARSHWANATH STEEL", city: "JAYSINGPUR" },
-  { name: "SHREE SWAMI S BUILD", city: "KOLHAPUR" },
-  { name: "RADHA STEEL", city: "SANGLI" },
-  { name: "BAJAJ STEEL", city: "SANGLI" },
+const GARUDA_CUSTOMERS: CustomerSeedItem[] = [
+  // 37 Customer Records
+  { name: "BHAWANI STEEL", city: "PILKHOD", garudaBalance: 0, currentDues: 0 },
+  { name: "AAI ENTERPRISES", city: "CHIKLI", garudaBalance: 760855, currentDues: 0 },
+  { name: "GEERISH STEEL", city: "KLP", garudaBalance: 2, currentDues: 0 },
+  { name: "KESHAV TRADERS", city: "TADAWALE", garudaBalance: 703454, currentDues: 703454 },
+  { name: "KISAN HARDWARE", city: "HATKANAGLE", garudaBalance: 0, currentDues: 0 },
+  { name: "KK TRADERS", city: "KURUNDAWAD", garudaBalance: 1297350, currentDues: 0 },
+  { name: "LOHIYA TRADERS", city: "AMBAJOGAI", garudaBalance: 121, currentDues: 0 },
+  { name: "MAHALAXMI STEEL", city: "KM", garudaBalance: 52, currentDues: 52 },
+  { name: "MALOO STEEL", city: "JAYSINGPUR", garudaBalance: 927390, currentDues: 800494 },
+  { name: "RN TRADERS", city: "UMERGA", garudaBalance: 581808, currentDues: 582173 },
+  { name: "ADI STEEL YARD", city: "ICHALKARANJI", garudaBalance: -50, currentDues: 0 },
+  { name: "CHAMUNDA STEEL", city: "PATAN", garudaBalance: 98, currentDues: 98 },
+  { name: "KALIKA STEEL", city: "SATANA", garudaBalance: -32, currentDues: 0 },
+  { name: "MAHADEV STEEL", city: "PIMPALNER", garudaBalance: -3, currentDues: 0 },
+  { name: "MANIK HARDWARE", city: "ICHALKARANJI", garudaBalance: 0, currentDues: 0 },
+  { name: "GANESH STEEL", city: "KHAPAR", garudaBalance: -549628, currentDues: 0 },
+  { name: "MS GURUKRUPA", city: "RK NAGAR", garudaBalance: 462598, currentDues: 462598 },
+  { name: "JAY BHAWANI STEEL", city: "CHIPLUN", garudaBalance: 391, currentDues: 0 },
+  { name: "DHANLAXMI STEEL", city: "KUDASHI", garudaBalance: 3, currentDues: 0 },
+  { name: "ATTAR & SONS", city: "BALINGA", garudaBalance: 0, currentDues: 0 },
+  { name: "MAHAKALI TRADERS", city: "KELGHAR", garudaBalance: 109029, currentDues: 109029 },
+  { name: "JALARAM TRADERS", city: "AJARA", garudaBalance: 0, currentDues: 0 },
+  { name: "SOHAM TRADERS", city: "PACHWAD", garudaBalance: 0, currentDues: 0 },
+  { name: "SAYADRI TRADERS 2", city: "BONDAWADE", garudaBalance: -31, currentDues: 0 },
+  { name: "KP STEEL", city: "MERRAJ", garudaBalance: 298732, currentDues: 0 },
+  { name: "SADGURU TRADERS", city: "GOTWADE", garudaBalance: 599612, currentDues: 0 },
+  { name: "SHIVSHANKAR HW", city: "BHOKAR", garudaBalance: 0, currentDues: 0 },
+  { name: "MOHINI TRADERS", city: "TAKALI", garudaBalance: 195826, currentDues: 195826 },
+  { name: "JK STEEL", city: "ICHK", garudaBalance: 6643, currentDues: 6643 },
+  { name: "ASHAPURA STEEL", city: "MUDHUL", garudaBalance: -92, currentDues: 0 },
+  { name: "GANESH STEEL", city: "ARAG", garudaBalance: 0, currentDues: 0 },
+  { name: "BALUMAMA TRADERS", city: "NIDHORI", garudaBalance: 0, currentDues: 0 },
+  { name: "ARIHANT LB", city: "CHALISGAON", garudaBalance: 361911, currentDues: 361663 },
+  { name: "PARSHWANATH STEEL", city: "JAYSINGPUR", garudaBalance: 0, currentDues: 0 },
+  { name: "SHREE SWAMI S BUILD", city: "KOLHAPUR", garudaBalance: -8559, currentDues: 0 },
+  { name: "RADHA STEEL", city: "SANGLI", garudaBalance: 39, currentDues: 39 },
+  { name: "BAJAJ STEEL", city: "SANGLI", garudaBalance: 542, currentDues: 542 },
 
-  // 4 Project / Party Entries
-  { name: "AJEET GOLD", city: null },
-  { name: "GARUDA AC", city: null },
-  { name: "SANDEEP GOLD", city: null },
-  { name: "GZ GOLD", city: null },
+  // 3 Project Records
+  { name: "AJEET GOLD", city: null, garudaBalance: 2400, currentDues: 0 },
+  { name: "MAHARASHTRA AC", city: null, garudaBalance: -136861, currentDues: 0 },
+  { name: "SANDEEP GOLD", city: null, garudaBalance: 335604, currentDues: 0 },
 ];
 
-async function seedCustomers() {
-  console.log("Seeding Customer Master Data...");
+async function seedGarudaCustomers() {
+  console.log("Seeding Garuda Statement Data under Maharashtra Branch...");
 
-  const branches = await prisma.branch.findMany({
-    where: { deletedAt: null },
+  const maharashtraBranch = await prisma.branch.findFirst({
+    where: { code: "MAH", deletedAt: null },
   });
 
-  if (branches.length === 0) {
-    console.error("Error: No active branches found in database.");
+  if (!maharashtraBranch) {
+    console.error("Error: Maharashtra branch (MAH) not found in database.");
     process.exit(1);
   }
 
-  console.log(`Found ${branches.length} active branch(es): ${branches.map((b) => b.name).join(", ")}`);
+  console.log(`Found Maharashtra Branch: ${maharashtraBranch.name} (${maharashtraBranch.id})`);
 
   const superAdmin = await prisma.user.findFirst({
     where: { role: "SUPER_ADMIN" },
   });
 
   let createdCount = 0;
-  let updatedCount = 0;
 
-  for (const branch of branches) {
-    for (const item of RAW_CUSTOMERS) {
-      const existing = await prisma.customer.findUnique({
-        where: {
-          branchId_name: {
-            branchId: branch.id,
-            name: item.name,
-          },
-        },
-      });
-
-      if (!existing) {
-        await prisma.customer.create({
-          data: {
-            name: item.name,
-            city: item.city,
-            branchId: branch.id,
-            createdById: superAdmin?.id ?? null,
-            updatedById: superAdmin?.id ?? null,
-          },
-        });
-        createdCount++;
-      } else {
-        // Update city if it was null before
-        if (!existing.city && item.city) {
-          await prisma.customer.update({
-            where: { id: existing.id },
-            data: { city: item.city },
-          });
-          updatedCount++;
-        }
-      }
-    }
+  for (const item of GARUDA_CUSTOMERS) {
+    await prisma.customer.create({
+      data: {
+        name: item.name,
+        city: item.city,
+        state: "Maharashtra",
+        garudaBalance: item.garudaBalance,
+        currentDues: item.currentDues,
+        branchId: maharashtraBranch.id,
+        createdById: superAdmin?.id ?? null,
+        updatedById: superAdmin?.id ?? null,
+      },
+    });
+    createdCount++;
   }
 
-  console.log(`Customer master seeding complete!`);
-  console.log(`- Created: ${createdCount} new customer records across branches.`);
-  console.log(`- Updated: ${updatedCount} existing customer records.`);
+  console.log(`Successfully seeded ${createdCount} customer & project records under Maharashtra Branch!`);
 
-  // Verify total count in database
   const totalCustomers = await prisma.customer.count({
-    where: { deletedAt: null },
+    where: { branchId: maharashtraBranch.id, deletedAt: null },
   });
-  console.log(`Total active customers in database: ${totalCustomers}`);
+  console.log(`Total active customers in Maharashtra Branch: ${totalCustomers}`);
 }
 
-seedCustomers()
+seedGarudaCustomers()
   .catch((err) => {
     console.error("Seeding failed:", err);
     process.exit(1);

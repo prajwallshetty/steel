@@ -50,8 +50,6 @@ export type QuotationEditorValues = z.infer<typeof editorSchema>;
 export interface OptionItem {
   readonly id: string;
   readonly name: string;
-  readonly city?: string | null;
-  readonly address?: string | null;
 }
 
 interface QuotationEditorProps {
@@ -96,7 +94,7 @@ function parseBasicRate(label: string): number | null {
 
 function parseDiaDiff(label: string): ParsedDiaDiff {
   const clean = label.trim().replace(/\s+/g, "");
-  
+
   let loading: number | null = null;
   const loadingMatch = clean.match(/\+(\d+(?:\.\d+)?)$/);
   let basePart = clean;
@@ -104,10 +102,10 @@ function parseDiaDiff(label: string): ParsedDiaDiff {
     loading = Number(loadingMatch[1]);
     basePart = clean.slice(0, loadingMatch.index);
   }
-  
+
   let firstTier: number | null = null;
   let secondTier: number | null = null;
-  
+
   const slashMatch = basePart.match(/^(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)/);
   if (slashMatch) {
     firstTier = Number(slashMatch[1]);
@@ -118,7 +116,7 @@ function parseDiaDiff(label: string): ParsedDiaDiff {
       firstTier = Number(singleMatch[1]);
     }
   }
-  
+
   return { firstTier, secondTier, loading };
 }
 
@@ -233,7 +231,7 @@ export function QuotationEditor({
       if (diaDiffLabelValue) {
         const { firstTier, secondTier, loading } = parseDiaDiff(diaDiffLabelValue);
         const differences = settings.differences;
-        
+
         // Find default tiers from settings (non-zero differences, sorted descending)
         const defaultTiers = [
           ...new Set(
@@ -253,7 +251,7 @@ export function QuotationEditor({
                 newDiff = secondTier;
               }
               setValue(`rows.${index}.difference`, newDiff, { shouldDirty: true });
-              
+
               if (loading !== null) {
                 setValue(`rows.${index}.loading`, loading, { shouldDirty: true });
               }
@@ -515,14 +513,6 @@ function PickerField({
                 setValue("header.partyName", selected ? selected.name : "", {
                   shouldDirty: true,
                 });
-                if (selected) {
-                  const loc = (selected.city || selected.address || "").trim();
-                  if (loc) {
-                    setValue("header.location", loc.toUpperCase(), {
-                      shouldDirty: true,
-                    });
-                  }
-                }
               }
             }}
           >

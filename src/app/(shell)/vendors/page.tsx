@@ -38,11 +38,13 @@ export default async function VendorsPage({ searchParams }: PageProps) {
     name: branch.name,
   }));
 
+  const totalLiability = vendors.reduce((acc, v) => acc + (v.balance || 0), 0);
+
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6">
       <PageHeading
         title="Vendors"
-        description={`${vendors.length} ${vendors.length === 1 ? "vendor" : "vendors"} in your scope.`}
+        description={`${vendors.length} ${vendors.length === 1 ? "vendor" : "vendors"} in your scope · Total Liability: ${totalLiability < 0 ? `-₹${Math.abs(totalLiability).toLocaleString("en-IN")}` : `₹${totalLiability.toLocaleString("en-IN")}`}`}
         actions={
           canCreate ? (
             <VendorDialog
@@ -99,8 +101,9 @@ export default async function VendorsPage({ searchParams }: PageProps) {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[880px] text-sm">
               <thead>
-                <tr className="border-b bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
-                  <th scope="col" className="px-4 py-3 text-left font-semibold">Name</th>
+                <tr className="border-b bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground font-semibold">
+                  <th scope="col" className="px-4 py-3 text-left font-semibold">Vendor Name</th>
+                  <th scope="col" className="px-4 py-3 text-right font-semibold">Amount / Balance</th>
                   <th scope="col" className="px-4 py-3 text-left font-semibold">Contact</th>
                   <th scope="col" className="px-4 py-3 text-left font-semibold">GSTIN</th>
                   <th scope="col" className="px-4 py-3 text-left font-semibold">City / state</th>
@@ -118,7 +121,10 @@ export default async function VendorsPage({ searchParams }: PageProps) {
                     key={vendor.id}
                     className="border-b transition-colors last:border-b-0 hover:bg-muted/40"
                   >
-                    <td className="px-4 py-3 font-medium">{vendor.name}</td>
+                    <td className="px-4 py-3 font-semibold text-foreground">{vendor.name}</td>
+                    <td className={`px-4 py-3 text-right font-bold tabular-nums ${vendor.balance < 0 ? "text-red-600" : "text-emerald-700"}`}>
+                      {vendor.balance < 0 ? `-₹${Math.abs(vendor.balance).toLocaleString("en-IN")}` : `₹${vendor.balance.toLocaleString("en-IN")}`}
+                    </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {vendor.phone ?? "—"}
                       {vendor.email && (
@@ -150,6 +156,7 @@ export default async function VendorsPage({ searchParams }: PageProps) {
                               city: vendor.city ?? "",
                               state: vendor.state ?? "",
                               pin: vendor.pin ?? "",
+                              balance: vendor.balance,
                               branchId: vendor.branchId,
                             }}
                             branches={branchOptions}

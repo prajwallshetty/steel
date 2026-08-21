@@ -32,6 +32,8 @@ export interface CustomerSummary {
   readonly city: string | null;
   readonly state: string | null;
   readonly pin: string | null;
+  readonly garudaBalance: number;
+  readonly currentDues: number;
   readonly branchId: string;
   readonly branchName: string;
   readonly quotationCount: number;
@@ -50,13 +52,13 @@ export async function listCustomers(
         filters.branchId ? { branchId: filters.branchId } : {},
         filters.search?.trim()
           ? {
-              OR: [
-                { name: { contains: filters.search.trim(), mode: "insensitive" } },
-                { phone: { contains: filters.search.trim(), mode: "insensitive" } },
-                { gstNumber: { contains: filters.search.trim(), mode: "insensitive" } },
-                { city: { contains: filters.search.trim(), mode: "insensitive" } },
-              ],
-            }
+            OR: [
+              { name: { contains: filters.search.trim(), mode: "insensitive" } },
+              { phone: { contains: filters.search.trim(), mode: "insensitive" } },
+              { gstNumber: { contains: filters.search.trim(), mode: "insensitive" } },
+              { city: { contains: filters.search.trim(), mode: "insensitive" } },
+            ],
+          }
           : {},
       ],
     },
@@ -78,6 +80,8 @@ export async function listCustomers(
     city: customer.city,
     state: customer.state,
     pin: customer.pin,
+    garudaBalance: Number(customer.garudaBalance),
+    currentDues: Number(customer.currentDues),
     branchId: customer.branchId,
     branchName: customer.branch.name,
     quotationCount: customer._count.quotations,
@@ -98,7 +102,7 @@ export async function listSelectableCustomers(
         branchId ? { branchId } : {},
       ],
     },
-    select: { id: true, name: true, gstNumber: true, branchId: true, city: true, address: true },
+    select: { id: true, name: true, gstNumber: true, branchId: true },
     orderBy: { name: "asc" },
   });
 }
@@ -118,18 +122,21 @@ export async function createCustomer(
   const branchId = resolveWriteBranch(subject, input.branchId || null);
   const nameTrimmed = input.name.trim();
 
-  // Check if a customer with the same name already exists in this branch (active or soft-deleted)
+  const cityTrimmed = input.city?.trim() || null;
+
+  // Check if a customer with the same name and city already exists in this branch
   const existing = await prisma.customer.findFirst({
     where: {
       branchId,
       name: { equals: nameTrimmed, mode: "insensitive" },
+      city: cityTrimmed ? { equals: cityTrimmed, mode: "insensitive" } : null,
     },
   });
 
   if (existing) {
     if (existing.deletedAt === null) {
       throw new BusinessRuleError(
-        `A customer named "${nameTrimmed}" already exists in this branch.`,
+        `A customer named "${nameTrimmed}"${cityTrimmed ? ` in ${cityTrimmed}` : ""} already exists in this branch.`,
       );
     }
 
@@ -142,9 +149,11 @@ export async function createCustomer(
         email: input.email?.trim() || null,
         gstNumber: input.gstNumber?.trim().toUpperCase() || null,
         address: input.address?.trim() || null,
-        city: input.city?.trim() || null,
+        city: cityTrimmed,
         state: input.state?.trim() || null,
         pin: input.pin?.trim() || null,
+        garudaBalance: input.garudaBalance ?? 0,
+        currentDues: input.currentDues ?? 0,
         deletedAt: null,
         updatedById: subject.id,
       },
@@ -170,9 +179,11 @@ export async function createCustomer(
       email: input.email?.trim() || null,
       gstNumber: input.gstNumber?.trim().toUpperCase() || null,
       address: input.address?.trim() || null,
-      city: input.city?.trim() || null,
+      city: cityTrimmed,
       state: input.state?.trim() || null,
       pin: input.pin?.trim() || null,
+      garudaBalance: input.garudaBalance ?? 0,
+      currentDues: input.currentDues ?? 0,
       branchId,
       createdById: subject.id,
       updatedById: subject.id,
@@ -199,12 +210,14 @@ export async function updateCustomer(
 ): Promise<{ id: string }> {
   const existing = await getCustomer(subject, id);
   const nameTrimmed = input.name.trim();
+  const cityTrimmed = input.city?.trim() || null;
 
-  // Check if name collides with another customer in the same branch
+  // Check if name and city collides with another customer in the same branch
   const duplicate = await prisma.customer.findFirst({
     where: {
       branchId: existing.branchId,
       name: { equals: nameTrimmed, mode: "insensitive" },
+      city: cityTrimmed ? { equals: cityTrimmed, mode: "insensitive" } : null,
       id: { not: id },
       deletedAt: null,
     },
@@ -212,7 +225,7 @@ export async function updateCustomer(
 
   if (duplicate) {
     throw new BusinessRuleError(
-      `A customer named "${nameTrimmed}" already exists in this branch.`,
+      `A customer named "${nameTrimmed}"${cityTrimmed ? ` in ${cityTrimmed}` : ""} already exists in this branch.`,
     );
   }
 
@@ -222,9 +235,11 @@ export async function updateCustomer(
     email: input.email?.trim() || null,
     gstNumber: input.gstNumber?.trim().toUpperCase() || null,
     address: input.address?.trim() || null,
-    city: input.city?.trim() || null,
+    city: cityTrimmed,
     state: input.state?.trim() || null,
     pin: input.pin?.trim() || null,
+    garudaBalance: input.garudaBalance ?? 0,
+    currentDues: input.currentDues ?? 0,
   };
 
   await prisma.customer.update({

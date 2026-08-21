@@ -101,11 +101,13 @@ export default async function CustomersPage({ searchParams }: PageProps) {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[880px] text-sm">
               <thead>
-                <tr className="border-b bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
-                  <th scope="col" className="px-4 py-3 text-left font-semibold">Name</th>
+                <tr className="border-b bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground font-semibold">
+                  <th scope="col" className="px-4 py-3 text-left font-semibold">Party Name</th>
+                  <th scope="col" className="px-4 py-3 text-left font-semibold">Location</th>
+                  <th scope="col" className="px-4 py-3 text-right font-semibold">Party Balance</th>
+                  <th scope="col" className="px-4 py-3 text-right font-semibold">Current Dues</th>
                   <th scope="col" className="px-4 py-3 text-left font-semibold">Contact</th>
                   <th scope="col" className="px-4 py-3 text-left font-semibold">GSTIN</th>
-                  <th scope="col" className="px-4 py-3 text-left font-semibold">City / state</th>
                   {isSuper && (
                     <th scope="col" className="px-4 py-3 text-left font-semibold">Branch</th>
                   )}
@@ -121,7 +123,16 @@ export default async function CustomersPage({ searchParams }: PageProps) {
                     key={customer.id}
                     className="border-b transition-colors last:border-b-0 hover:bg-muted/40"
                   >
-                    <td className="px-4 py-3 font-medium">{customer.name}</td>
+                    <td className="px-4 py-3 font-semibold text-foreground">{customer.name}</td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {customer.city || "—"}
+                    </td>
+                    <td className={`px-4 py-3 text-right font-bold tabular-nums ${customer.garudaBalance < 0 ? "text-red-600" : "text-emerald-700"}`}>
+                      {customer.garudaBalance < 0 ? `-₹${Math.abs(customer.garudaBalance).toLocaleString("en-IN")}` : `₹${customer.garudaBalance.toLocaleString("en-IN")}`}
+                    </td>
+                    <td className="px-4 py-3 text-right font-bold tabular-nums text-amber-700">
+                      {customer.currentDues > 0 ? `₹${customer.currentDues.toLocaleString("en-IN")}` : "—"}
+                    </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {customer.phone ?? "—"}
                       {customer.email && (
@@ -130,9 +141,6 @@ export default async function CustomersPage({ searchParams }: PageProps) {
                     </td>
                     <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
                       {customer.gstNumber ?? "—"}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {[customer.city, customer.state].filter(Boolean).join(", ") || "—"}
                     </td>
                     {isSuper && (
                       <td className="px-4 py-3 text-muted-foreground">
@@ -166,6 +174,8 @@ export default async function CustomersPage({ searchParams }: PageProps) {
                               city: customer.city ?? "",
                               state: customer.state ?? "",
                               pin: customer.pin ?? "",
+                              garudaBalance: customer.garudaBalance,
+                              currentDues: customer.currentDues,
                               branchId: customer.branchId,
                             }}
                             branches={branchOptions}

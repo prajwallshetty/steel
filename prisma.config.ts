@@ -34,7 +34,7 @@ function loadEnvFile(file = ".env"): void {
 
 loadEnvFile();
 
-const migrationUrl = process.env.DIRECT_DB_URL ?? process.env.DB_URL;
+const migrationUrl = process.env.DB_URL ?? process.env.DIRECT_DB_URL;
 
 if (!migrationUrl) {
   throw new Error(

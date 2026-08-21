@@ -44,6 +44,7 @@ export function VendorDialog({
       city: vendor?.city ?? "",
       state: vendor?.state || "Maharashtra",
       pin: vendor?.pin ?? "",
+      balance: vendor?.balance ?? 0,
       branchId: vendor?.branchId ?? defaultBranchId ?? "",
     },
   });
@@ -77,8 +78,12 @@ export function VendorDialog({
       wide
     >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label="Name" error={errors.name?.message} required className="sm:col-span-2">
+        <Field label="Vendor Name" error={errors.name?.message} required className="sm:col-span-2">
           <Input {...register("name")} placeholder="APEX VENDORS" className="uppercase" />
+        </Field>
+
+        <Field label="Amount / Balance (₹)" error={errors.balance?.message} className="sm:col-span-2">
+          <Input {...register("balance")} type="number" step="any" placeholder="0" />
         </Field>
 
         <Field label="Phone" error={errors.phone?.message}>

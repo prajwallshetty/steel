@@ -32,7 +32,7 @@ const prisma = new PrismaClient({
 });
 
 async function cleanOperationalData() {
-  console.log("Starting operational data cleanup for Maharashtra-only scoping...");
+  console.log("Starting full operational data cleanup...");
 
   try {
     // 1. Delete Cash Ledger Entries
@@ -55,45 +55,15 @@ async function cleanOperationalData() {
     const deletedQuotations = await prisma.quotation.deleteMany({});
     console.log(`Deleted ${deletedQuotations.count} Quotation records.`);
 
-    // 6. Identify Maharashtra Branch
-    const maharashtraBranch = await prisma.branch.findUnique({
-      where: { code: "MAH" },
-    });
+    // 6. Delete ALL Customers
+    const deletedCustomers = await prisma.customer.deleteMany({});
+    console.log(`Deleted ${deletedCustomers.count} Customer records.`);
 
-    if (!maharashtraBranch) {
-      throw new Error("Maharashtra branch (MAH) not found in database!");
-    }
+    // 7. Delete ALL Vendors
+    const deletedVendors = await prisma.vendor.deleteMany({});
+    console.log(`Deleted ${deletedVendors.count} Vendor records.`);
 
-    // 7. Delete Customers not belonging to Maharashtra branch
-    const deletedCustomers = await prisma.customer.deleteMany({
-      where: {
-        branchId: { not: maharashtraBranch.id },
-      },
-    });
-    console.log(`Deleted ${deletedCustomers.count} Customer records not in Maharashtra branch.`);
-
-    // 8. Delete Vendors not belonging to Maharashtra branch
-    const deletedVendors = await prisma.vendor.deleteMany({
-      where: {
-        branchId: { not: maharashtraBranch.id },
-      },
-    });
-    console.log(`Deleted ${deletedVendors.count} Vendor records not in Maharashtra branch.`);
-
-    // 9. Update remaining Maharashtra customers and vendors to have state = "Maharashtra"
-    const updatedCustomers = await prisma.customer.updateMany({
-      where: { branchId: maharashtraBranch.id },
-      data: { state: "Maharashtra" },
-    });
-    console.log(`Updated state to 'Maharashtra' for ${updatedCustomers.count} customers.`);
-
-    const updatedVendors = await prisma.vendor.updateMany({
-      where: { branchId: maharashtraBranch.id },
-      data: { state: "Maharashtra" },
-    });
-    console.log(`Updated state to 'Maharashtra' for ${updatedVendors.count} vendors.`);
-
-    // 10. Reset Sequence Counters
+    // 8. Reset Sequence Counters
     const resetSequences = await prisma.sequence.updateMany({
       data: { value: 0 },
     });

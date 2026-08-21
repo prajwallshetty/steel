@@ -44,6 +44,8 @@ export function CustomerDialog({
       city: customer?.city ?? "",
       state: customer?.state || "Maharashtra",
       pin: customer?.pin ?? "",
+      garudaBalance: customer?.garudaBalance ?? 0,
+      currentDues: customer?.currentDues ?? 0,
       branchId: customer?.branchId ?? defaultBranchId ?? "",
     },
   });
@@ -77,32 +79,24 @@ export function CustomerDialog({
       wide
     >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label="Name" error={errors.name?.message} required className="sm:col-span-2">
+        <Field label="Party Name" error={errors.name?.message} required className="sm:col-span-2">
           <Input {...register("name")} placeholder="SADGURU TRADERS" className="uppercase" />
         </Field>
 
-        <Field label="Phone" error={errors.phone?.message}>
-          <Input {...register("phone")} placeholder="+91 98765 43210" />
-        </Field>
-
-        <Field label="Email" error={errors.email?.message}>
-          <Input {...register("email")} type="email" placeholder="accounts@example.com" />
-        </Field>
-
-        <Field label="GSTIN" error={errors.gstNumber?.message} className="sm:col-span-2">
-          <Input {...register("gstNumber")} placeholder="27ABCDE1234F1Z5" className="uppercase" />
-        </Field>
-
-        <Field label="Address" error={errors.address?.message} className="sm:col-span-2">
-          <Input {...register("address")} />
-        </Field>
-
-        <Field label="City" error={errors.city?.message}>
-          <Input {...register("city")} />
+        <Field label="Location (City)" error={errors.city?.message}>
+          <Input {...register("city")} placeholder="GOTWADE" />
         </Field>
 
         <Field label="State" error={errors.state?.message}>
           <Input {...register("state")} readOnly className="bg-muted" />
+        </Field>
+
+        <Field label="Party Balance (₹)" error={errors.garudaBalance?.message}>
+          <Input {...register("garudaBalance")} type="number" step="any" placeholder="0" />
+        </Field>
+
+        <Field label="Current Dues (₹)" error={errors.currentDues?.message}>
+          <Input {...register("currentDues")} type="number" step="any" placeholder="0" />
         </Field>
 
         <Field label="PIN" error={errors.pin?.message}>

@@ -33,26 +33,25 @@ const prisma = new PrismaClient({
 
 async function main() {
   console.log("=== VERIFYING STAFF & CUSTOMER DATA ===");
-  const activeStaff = await prisma.staff.findMany({
+  const activeCustomers = await prisma.customer.findMany({
     where: { deletedAt: null },
+    orderBy: { name: "asc" },
   });
 
-  console.log(`Active Staff Members count: ${activeStaff.length}`);
-  for (const s of activeStaff) {
-    console.log(`  • Staff Name: ${s.name} | Balance: ₹${Number(s.balance).toLocaleString("en-IN")}`);
+  console.log(`Active Customers count: ${activeCustomers.length}`);
+  let negSum = 0;
+  for (const c of activeCustomers) {
+    const bal = Number(c.garudaBalance);
+    const dues = Number(c.currentDues);
+    if (bal < 0 || dues > 0) {
+      console.log(`  • ${c.name}: garudaBalance=${bal}, currentDues=${dues}`);
+    }
+    if (bal < 0) {
+      negSum += Math.abs(bal);
+    }
   }
 
-  const activeCustomersCount = await prisma.customer.count({
-    where: { deletedAt: null },
-  });
-
-  const customerDues = await prisma.customer.aggregate({
-    where: { deletedAt: null },
-    _sum: { currentDues: true },
-  });
-
-  console.log(`Active Customers count: ${activeCustomersCount}`);
-  console.log(`Total Active Customer Dues: ₹${Number(customerDues._sum.currentDues ?? 0).toLocaleString("en-IN")}`);
+  console.log(`\nSum of absolute values of negative garudaBalances: ₹${negSum.toLocaleString("en-IN")}`);
   console.log("=== VERIFICATION COMPLETED ===");
 }
 

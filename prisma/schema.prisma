@@ -128,6 +128,7 @@ model Branch {
   users          User[]
   customers      Customer[]
   vendors        Vendor[]
+  staff          Staff[]
   quotations     Quotation[]
   ledgerEntries  CashLedgerEntry[]
   vendorBills    VendorBill[]
@@ -183,6 +184,8 @@ model User {
   customersUpdated   Customer[]        @relation("CustomerUpdatedBy")
   vendorsCreated     Vendor[]          @relation("VendorCreatedBy")
   vendorsUpdated     Vendor[]          @relation("VendorUpdatedBy")
+  staffCreated       Staff[]           @relation("StaffCreatedBy")
+  staffUpdated       Staff[]           @relation("StaffUpdatedBy")
   branchesCreated    Branch[]          @relation("BranchCreatedBy")
   branchesUpdated    Branch[]          @relation("BranchUpdatedBy")
   usersCreated       User[]            @relation("UserCreatedBy")
@@ -287,6 +290,34 @@ model Vendor {
   @@unique([branchId, name])
   @@index([branchId, deletedAt])
   @@map("vendors")
+}
+
+model Staff {
+  id          String  @id @default(cuid())
+  name        String
+  phone       String?
+  email       String?
+  designation String?
+  address     String?
+
+  balance Decimal @default(0) @db.Decimal(16, 2)
+
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+
+  ledgerEntries CashLedgerEntry[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  createdById String?
+  updatedById String?
+  createdBy   User?     @relation("StaffCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy   User?     @relation("StaffUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([branchId, name])
+  @@index([branchId, deletedAt])
+  @@map("staff")
 }
 
 /// A quotation document.
@@ -399,6 +430,9 @@ model CashLedgerEntry {
   vendorId String?
   vendor   Vendor?   @relation(fields: [vendorId], references: [id], onDelete: SetNull)
 
+  staffId String?
+  staff   Staff?    @relation(fields: [staffId], references: [id], onDelete: SetNull)
+
   /// CREDIT is money received; DEBIT is money paid out or reversed.
   direction     LedgerDirection @default(CREDIT)
   amount        Decimal         @db.Decimal(16, 2)
@@ -429,6 +463,7 @@ model CashLedgerEntry {
   @@index([branchId, status])
   @@index([customerId])
   @@index([vendorId])
+  @@index([staffId])
   @@index([createdById])
   @@map("cash_ledger_entries")
 }

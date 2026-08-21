@@ -72,6 +72,12 @@ const PRIMARY_NAV: readonly NavItem[] = [
     anyOf: ["customer:view"],
   },
   {
+    href: "/staff",
+    label: "Staff",
+    icon: Users,
+    anyOf: ["staff:view"],
+  },
+  {
     href: "/customer-payments",
     label: "Customer Payment",
     icon: Wallet,

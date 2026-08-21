@@ -78,10 +78,6 @@ const GARUDA_CUSTOMERS: CustomerSeedItem[] = [
   { name: "RADHA STEEL", city: "SANGLI", garudaBalance: 39, currentDues: 39 },
   { name: "BAJAJ STEEL", city: "SANGLI", garudaBalance: 542, currentDues: 542 },
 
-  // 3 Project Records
-  { name: "AJEET GOLD", city: null, garudaBalance: 2400, currentDues: 0 },
-  { name: "MAHARASHTRA AC", city: null, garudaBalance: -136861, currentDues: 0 },
-  { name: "SANDEEP GOLD", city: null, garudaBalance: 335604, currentDues: 0 },
 ];
 
 async function seedGarudaCustomers() {

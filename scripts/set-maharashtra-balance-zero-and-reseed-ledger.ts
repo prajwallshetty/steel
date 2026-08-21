@@ -31,9 +31,10 @@ const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString }),
 });
 
-async function seedLedgerOpeningEntries() {
-  console.log("=== SEEDING LEDGER OPENING ENTRIES FOR SEEDED DATA & ZEROING BRANCH STARTING BALANCE ===");
+async function rollbackAndSetZeroBalance() {
+  console.log("=== ROLLING BACK LEDGER ENTRIES & SETTING MAHARASHTRA STARTING BALANCE TO 0 ===");
 
+  // 1. Update Maharashtra branch starting balance to 0
   const maharashtraBranch = await prisma.branch.findFirst({
     where: { code: "MAH", deletedAt: null },
   });
@@ -42,25 +43,22 @@ async function seedLedgerOpeningEntries() {
     throw new Error("Maharashtra branch not found!");
   }
 
-  // Set Maharashtra Branch startingBalance to 0
   await prisma.branch.update({
     where: { id: maharashtraBranch.id },
     data: { startingBalance: 0 },
   });
-  console.log("✓ Set Maharashtra Branch starting balance to 0.");
+  console.log("✓ Updated Maharashtra Branch starting balance to 0.");
+
+  // 2. Delete any existing opening ledger entries to avoid duplicates
+  await prisma.cashLedgerEntry.deleteMany({
+    where: { particular: { contains: "Opening" } },
+  });
 
   const superAdmin = await prisma.user.findFirst({
     where: { role: "SUPER_ADMIN" },
   });
 
-  // Delete existing opening ledger entries to make idempotent
-  await prisma.cashLedgerEntry.deleteMany({
-    where: {
-      particular: { contains: "Opening" },
-    },
-  });
-
-  // Seed Customers Opening Entries
+  // 3. Re-seed Customer Ledger Opening Entries
   const customers = await prisma.customer.findMany({
     where: { branchId: maharashtraBranch.id, deletedAt: null },
   });
@@ -98,9 +96,9 @@ async function seedLedgerOpeningEntries() {
     });
     custCount++;
   }
-  console.log(`✓ Seeded ${custCount} customer opening balance ledger entries.`);
+  console.log(`✓ Re-seeded ${custCount} customer opening balance ledger entries.`);
 
-  // Seed Vendors Opening Entries
+  // 4. Re-seed Vendor Ledger Opening Entries
   const vendors = await prisma.vendor.findMany({
     where: { branchId: maharashtraBranch.id, deletedAt: null },
   });
@@ -138,14 +136,14 @@ async function seedLedgerOpeningEntries() {
     });
     vendCount++;
   }
-  console.log(`✓ Seeded ${vendCount} vendor opening balance ledger entries.`);
+  console.log(`✓ Re-seeded ${vendCount} vendor opening balance ledger entries.`);
 
-  console.log("\nALL LEDGER OPENING ENTRIES SEEDED SUCCESSFULLY!");
+  console.log("\nROLLBACK & SEEDING COMPLETED SUCCESSFULLY!");
 }
 
-seedLedgerOpeningEntries()
+rollbackAndSetZeroBalance()
   .catch((err) => {
-    console.error("Seeding failed:", err);
+    console.error("Rollback failed:", err);
     process.exit(1);
   })
   .finally(async () => {

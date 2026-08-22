@@ -73,7 +73,7 @@ export default async function CustomerPaymentsPage({ searchParams }: PageProps) 
         actions={
           hasPermission(user, PERMISSIONS.LEDGER_CREATE) ? (
             <CustomerPaymentDialog
-              customers={customers.map((c) => ({ id: c.id, name: c.name }))}
+              customers={customers.map((c) => ({ id: c.id, name: c.name, city: c.city }))}
               branches={branches.map((b) => ({ id: b.id, name: b.name }))}
               canSelectBranch={isSuper}
               defaultBranchId={user.branchId}

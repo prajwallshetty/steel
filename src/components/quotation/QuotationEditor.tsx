@@ -50,6 +50,7 @@ export type QuotationEditorValues = z.infer<typeof editorSchema>;
 export interface OptionItem {
   readonly id: string;
   readonly name: string;
+  readonly city?: string | null;
 }
 
 interface QuotationEditorProps {
@@ -513,23 +514,33 @@ function PickerField({
                 setValue("header.partyName", selected ? selected.name : "", {
                   shouldDirty: true,
                 });
+                if (selected?.city) {
+                  setValue("header.location", selected.city, {
+                    shouldDirty: true,
+                  });
+                }
               }
             }}
           >
             <SelectTrigger className="w-full">
               <SelectValue placeholder={placeholder}>
-                {() =>
-                  field.value && field.value !== NONE
-                    ? (options.find((opt) => opt.id === field.value)?.name || field.value)
-                    : placeholder
-                }
+                {() => {
+                  if (field.value && field.value !== NONE) {
+                    const opt = options.find((o) => o.id === field.value);
+                    if (opt) {
+                      return opt.city ? `${opt.name} (${opt.city})` : opt.name;
+                    }
+                    return field.value;
+                  }
+                  return placeholder;
+                }}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {allowNone && <SelectItem value={NONE}>{placeholder}</SelectItem>}
               {options.map((option) => (
                 <SelectItem key={option.id} value={option.id}>
-                  {option.name}
+                  {option.name}{option.city ? ` (${option.city})` : ""}
                 </SelectItem>
               ))}
             </SelectContent>

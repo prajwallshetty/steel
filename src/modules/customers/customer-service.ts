@@ -102,7 +102,7 @@ export async function listSelectableCustomers(
         branchId ? { branchId } : {},
       ],
     },
-    select: { id: true, name: true, gstNumber: true, branchId: true },
+    select: { id: true, name: true, gstNumber: true, branchId: true, city: true, address: true, state: true },
     orderBy: { name: "asc" },
   });
 }

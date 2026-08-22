@@ -26,7 +26,7 @@ export function CustomerPaymentDialog({
   canSelectBranch,
   defaultBranchId,
 }: {
-  readonly customers: readonly { id: string; name: string }[];
+  readonly customers: readonly { id: string; name: string; city?: string | null }[];
   readonly branches: readonly { id: string; name: string }[];
   readonly canSelectBranch: boolean;
   readonly defaultBranchId: string | null;
@@ -85,7 +85,7 @@ export function CustomerPaymentDialog({
             <option value="">Choose customer</option>
             {customers.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.name}
+                {c.name}{c.city ? ` (${c.city})` : ""}
               </option>
             ))}
           </NativeSelect>

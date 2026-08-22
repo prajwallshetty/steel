@@ -14,7 +14,7 @@ interface QuotationHeaderFieldsProps {
   readonly disabled?: boolean;
   readonly setValue: any;
   readonly getValues: any;
-  readonly customers: readonly { id: string; name: string }[];
+  readonly customers: readonly { id: string; name: string; city?: string | null }[];
 }
 
 /** The eight header cells of the sheet, as a form. */
@@ -29,6 +29,7 @@ export function QuotationHeaderFields({
 }: QuotationHeaderFieldsProps) {
   const headerErrors = errors.header;
   const basicRateLabelValue = useWatch({ control, name: "header.basicRateLabel" }) || "";
+  const customerId = useWatch({ control, name: "customerId" });
 
   const [basicVal, diffVal] = (() => {
     const clean = String(basicRateLabelValue).trim();
@@ -81,38 +82,58 @@ export function QuotationHeaderFields({
           control={control}
           name="header.partyName"
           render={({ field }) => {
-            const hasMatched = customers.some(
-              (c) => c.name.toUpperCase() === (field.value || "").toUpperCase()
+            const activeCustomer = customers.find(
+              (c) => c.id === customerId || c.name.toUpperCase() === (field.value || "").toUpperCase()
             );
-            const showFallback = field.value && !hasMatched;
+            const selectValue = activeCustomer
+              ? activeCustomer.id
+              : field.value
+                ? "__fallback__"
+                : "";
 
             return (
-              <select
-                value={field.value || ""}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  field.onChange(val);
-                  // Also set customerId in the form context if matched
-                  const matchedCust = customers.find((c) => c.name === val);
-                  setValue("customerId", matchedCust ? matchedCust.id : null, {
-                    shouldDirty: true,
-                  });
-                }}
-                disabled={disabled}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <option value="">Select a customer</option>
-                {showFallback && (
-                  <option value={field.value}>
-                    {field.value} (Legacy / Not Linked)
-                  </option>
+              <div className="space-y-1">
+                <select
+                  value={selectValue}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (!val) {
+                      field.onChange("");
+                      setValue("customerId", null, { shouldDirty: true });
+                      return;
+                    }
+                    if (val === "__fallback__") return;
+
+                    const matchedCust = customers.find((c) => c.id === val);
+                    if (matchedCust) {
+                      field.onChange(matchedCust.name);
+                      setValue("customerId", matchedCust.id, { shouldDirty: true });
+                      if (matchedCust.city) {
+                        setValue("header.location", matchedCust.city, { shouldDirty: true });
+                      }
+                    }
+                  }}
+                  disabled={disabled}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="">Select a customer</option>
+                  {field.value && !activeCustomer && (
+                    <option value="__fallback__">
+                      {field.value} (Legacy / Not Linked)
+                    </option>
+                  )}
+                  {customers.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}{c.city ? ` (${c.city})` : ""}
+                    </option>
+                  ))}
+                </select>
+                {activeCustomer?.city && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Connected location: <span className="font-semibold text-foreground">{activeCustomer.city}</span>
+                  </p>
                 )}
-                {customers.map((c) => (
-                  <option key={c.id} value={c.name}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+              </div>
             );
           }}
         />

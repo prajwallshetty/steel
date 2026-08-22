@@ -11,7 +11,7 @@ export function LedgerFilter({
   customers,
   vendors,
 }: {
-  readonly customers: readonly { id: string; name: string }[];
+  readonly customers: readonly { id: string; name: string; city?: string | null }[];
   readonly vendors: readonly { id: string; name: string }[];
 }) {
   const router = useRouter();
@@ -100,13 +100,16 @@ export function LedgerFilter({
           >
             <SelectTrigger id="party-select">
               <SelectValue placeholder="Choose customer...">
-                {() => customers.find((c) => c.id === customerId)?.name || "Choose customer..."}
+                {() => {
+                  const c = customers.find((cust) => cust.id === customerId);
+                  return c ? (c.city ? `${c.name} (${c.city})` : c.name) : "Choose customer...";
+                }}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {customers.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
-                  {c.name}
+                  {c.name}{c.city ? ` (${c.city})` : ""}
                 </SelectItem>
               ))}
             </SelectContent>

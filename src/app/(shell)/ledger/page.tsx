@@ -6,7 +6,7 @@ import { requireAnyPermission } from "@/modules/auth/guard";
 import { PERMISSIONS } from "@/modules/permissions/permissions";
 import { listSelectableCustomers } from "@/modules/customers/customer-service";
 import { listSelectableVendors } from "@/modules/vendors/vendor-service";
-import { getCustomerLedger, getVendorLedger } from "@/modules/receipt-payment/receipt-service";
+import { getCustomerLedger, getVendorLedger, getConsolidatedLedger } from "@/modules/receipt-payment/receipt-service";
 import { getSettings } from "@/modules/settings/settings-service";
 import { formatListDate, formatMoney } from "@/lib/format/number";
 import { Card, CardContent } from "@/components/ui/card";
@@ -45,10 +45,10 @@ export default async function CustomerLedgerPage({ searchParams }: PageProps) {
   const selectedVendorId = params.vendorId;
 
   let ledger = null;
-  let isSelected = false;
+  let isFilteredAccount = false;
 
   if (partyType === "vendor" && selectedVendorId) {
-    isSelected = true;
+    isFilteredAccount = true;
     try {
       ledger = await getVendorLedger(user, selectedVendorId, {
         from: params.from,
@@ -59,7 +59,7 @@ export default async function CustomerLedgerPage({ searchParams }: PageProps) {
       console.error(e);
     }
   } else if (partyType === "customer" && selectedCustomerId) {
-    isSelected = true;
+    isFilteredAccount = true;
     try {
       ledger = await getCustomerLedger(user, selectedCustomerId, {
         from: params.from,
@@ -69,19 +69,34 @@ export default async function CustomerLedgerPage({ searchParams }: PageProps) {
     } catch (e) {
       console.error(e);
     }
+  } else {
+    // Show full consolidated ledger across all transactions
+    try {
+      ledger = await getConsolidatedLedger(user, {
+        from: params.from,
+        to: params.to,
+        branchId: user.branchId ?? undefined,
+      });
+    } catch (e) {
+      console.error(e);
+    }
   }
 
-  const printHref = partyType === "vendor"
+  const accountName = isFilteredAccount
+    ? (ledger?.customerName ?? ledger?.vendorName ?? "Account")
+    : "Consolidated General Ledger (All Transactions)";
+
+  const printHref = partyType === "vendor" && selectedVendorId
     ? `/ledger/print?vendorId=${selectedVendorId}&partyType=vendor${params.from ? `&from=${params.from}` : ""}${params.to ? `&to=${params.to}` : ""}`
     : `/ledger/print?customerId=${selectedCustomerId}&partyType=customer${params.from ? `&from=${params.from}` : ""}${params.to ? `&to=${params.to}` : ""}`;
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6">
       <PageHeading
-        title="Ledger Statement"
-        description="View the consolidated financial history of a customer or vendor, including invoices, payments, and receipts."
+        title={accountName}
+        description="Showing full financial transactions (invoices, bills, receipts, and payments). Filter by customer or vendor below."
         actions={
-          isSelected && (selectedCustomerId || selectedVendorId) ? (
+          isFilteredAccount && (selectedCustomerId || selectedVendorId) ? (
             <Button
               variant="outline"
               size="sm"
@@ -100,26 +115,14 @@ export default async function CustomerLedgerPage({ searchParams }: PageProps) {
         </CardContent>
       </Card>
 
-      {!isSelected ? (
-        <Card>
-          <CardContent className="flex flex-col items-center gap-3 py-16 text-center text-muted-foreground">
-            <Users className="size-12 text-muted-foreground/60" />
-            <div>
-              <p className="font-semibold text-lg text-foreground">No account selected</p>
-              <p className="text-sm">
-                Select a customer or vendor from the filters above to view their financial ledger.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      ) : !ledger ? (
+      {!ledger ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-16 text-center text-muted-foreground">
             <Users className="size-12 text-muted-foreground/60" />
             <div>
               <p className="font-semibold text-lg text-foreground">Account not found</p>
               <p className="text-sm">
-                The selected customer or vendor was not found or is outside of your scope.
+                The selected account was not found or is outside of your scope.
               </p>
             </div>
           </CardContent>
@@ -141,7 +144,7 @@ export default async function CustomerLedgerPage({ searchParams }: PageProps) {
             <Card className="bg-card">
               <CardContent className="p-4">
                 <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
-                  {partyType === "vendor" ? "Total Payments (-)" : "Total Debits (+)"}
+                  Total Debits / Payments
                 </p>
                 <p className="text-xl font-bold tabular-nums text-red-600 mt-1">
                   {money(ledger.totalDebit)}
@@ -152,7 +155,7 @@ export default async function CustomerLedgerPage({ searchParams }: PageProps) {
             <Card className="bg-card">
               <CardContent className="p-4">
                 <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
-                  {partyType === "vendor" ? "Total Bills (+)" : "Total Credits (-)"}
+                  Total Credits / Receipts
                 </p>
                 <p className="text-xl font-bold tabular-nums text-emerald-600 mt-1">
                   {money(ledger.totalCredit)}
@@ -163,7 +166,7 @@ export default async function CustomerLedgerPage({ searchParams }: PageProps) {
             <Card className="bg-card border-2 border-primary/20 bg-primary/5">
               <CardContent className="p-4">
                 <p className="text-xs uppercase tracking-wide text-primary font-semibold">
-                  {partyType === "vendor" ? "Net Payable" : "Net Outstanding"}
+                  Closing Balance
                 </p>
                 <p className="text-2xl font-black tabular-nums text-foreground mt-1">
                   {money(ledger.closingBalance)}
@@ -172,20 +175,23 @@ export default async function CustomerLedgerPage({ searchParams }: PageProps) {
             </Card>
           </div>
 
-          <Card className="overflow-hidden py-0">
+          <Card className="overflow-hidden py-0 border border-border/80 shadow-xs">
             {ledger.rows.length === 0 ? (
               <CardContent className="py-16 text-center text-sm text-muted-foreground flex flex-col items-center gap-2">
                 <BookOpen className="size-8 text-muted-foreground/60" />
-                <p>No transactions found for the selected period.</p>
+                <p>No transactions found for the selected filter/period.</p>
               </CardContent>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[850px] text-sm">
+                <table className="w-full min-w-[900px] text-sm">
                   <thead>
                     <tr className="border-b bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground font-semibold">
                       <th scope="col" className="px-4 py-3 text-left font-bold">Date</th>
                       <th scope="col" className="px-4 py-3 text-left font-bold">Voucher No</th>
                       <th scope="col" className="px-4 py-3 text-left font-bold">Type</th>
+                      {!isFilteredAccount && (
+                        <th scope="col" className="px-4 py-3 text-left font-bold">Party Name</th>
+                      )}
                       <th scope="col" className="px-4 py-3 text-left font-bold">Description</th>
                       <th scope="col" className="px-4 py-3 text-right font-bold">Debit (+)</th>
                       <th scope="col" className="px-4 py-3 text-right font-bold">Credit (-)</th>
@@ -204,6 +210,9 @@ export default async function CustomerLedgerPage({ searchParams }: PageProps) {
                           O/B
                         </span>
                       </td>
+                      {!isFilteredAccount && (
+                        <td className="px-4 py-3 text-muted-foreground">—</td>
+                      )}
                       <td className="px-4 py-3 text-muted-foreground">Opening Balance B/F</td>
                       <td className="px-4 py-3 text-right tabular-nums">
                         {ledger.openingBalance > 0 ? money(ledger.openingBalance) : "—"}
@@ -240,6 +249,11 @@ export default async function CustomerLedgerPage({ searchParams }: PageProps) {
                             {row.type}
                           </span>
                         </td>
+                        {!isFilteredAccount && (
+                          <td className="px-4 py-3 text-foreground font-semibold">
+                            {row.partyName || "—"}
+                          </td>
+                        )}
                         <td className="px-4 py-3 text-foreground font-medium">
                           {row.description}
                         </td>
@@ -264,3 +278,4 @@ export default async function CustomerLedgerPage({ searchParams }: PageProps) {
     </div>
   );
 }
+

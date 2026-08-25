@@ -779,3 +779,207 @@ export async function getVendorLedger(
     rows,
   };
 }
+
+// Consolidated All-Account Ledger Details
+export async function getConsolidatedLedger(
+  subject: ScopeSubject,
+  filters: { readonly from?: string; readonly to?: string; readonly branchId?: string } = {},
+): Promise<any> {
+  const branchCond = branchWhere(subject);
+  const filterBranch = filters.branchId ? { branchId: filters.branchId } : {};
+  const isSuper = subject.role === Role.SUPER_ADMIN;
+
+  // Get branches for starting balances
+  const branches = await prisma.branch.findMany({
+    where: {
+      ...NOT_DELETED,
+      ...(isSuper
+        ? (filters.branchId ? { id: filters.branchId } : {})
+        : { id: subject.branchId ?? "__none__" }),
+    },
+    select: { id: true, startingBalance: true },
+  });
+
+  const totalStartingBalance = branches.reduce((sum, b) => sum + Number(b.startingBalance || 0), 0);
+
+  let priorDebit = 0;
+  let priorCredit = 0;
+
+  if (filters.from) {
+    const priorInvoices = await prisma.quotation.aggregate({
+      _sum: { grandTotal: true },
+      where: {
+        AND: [
+          branchCond,
+          filterBranch,
+          { status: { in: [...INVOICE_STATUSES] } },
+          { deletedAt: null },
+          { quotationDate: { lt: filters.from } },
+        ],
+      },
+    });
+    priorDebit += Number(priorInvoices._sum?.grandTotal ?? 0);
+
+    const priorBills = await prisma.vendorBill.aggregate({
+      _sum: { amount: true },
+      where: {
+        AND: [
+          branchCond,
+          filterBranch,
+          { deletedAt: null },
+          { billDate: { lt: new Date(filters.from) } },
+        ],
+      },
+    });
+    priorCredit += Number(priorBills._sum?.amount ?? 0);
+
+    const priorLedger = await prisma.cashLedgerEntry.findMany({
+      where: {
+        AND: [
+          branchCond,
+          filterBranch,
+          { status: { in: [...SETTLED] } },
+          { deletedAt: null },
+          { entryDate: { lt: new Date(filters.from) } },
+        ],
+      },
+      select: { amount: true, direction: true },
+    });
+
+    priorLedger.forEach((entry) => {
+      if (entry.direction === LedgerDirection.CREDIT) {
+        priorCredit += Number(entry.amount);
+      } else {
+        priorDebit += Number(entry.amount);
+      }
+    });
+  }
+
+  const openingBalance = totalStartingBalance + priorDebit - priorCredit;
+
+  // Fetch invoices in period
+  const invoices = await prisma.quotation.findMany({
+    where: {
+      AND: [
+        branchCond,
+        filterBranch,
+        { status: { in: [...INVOICE_STATUSES] } },
+        { deletedAt: null },
+        filters.from ? { quotationDate: { gte: filters.from } } : {},
+        filters.to ? { quotationDate: { lte: filters.to } } : {},
+      ],
+    },
+  });
+
+  // Fetch bills in period
+  const bills = await prisma.vendorBill.findMany({
+    where: {
+      AND: [
+        branchCond,
+        filterBranch,
+        { deletedAt: null },
+        filters.from ? { billDate: { gte: new Date(filters.from) } } : {},
+        filters.to ? { billDate: { lte: new Date(filters.to) } } : {},
+      ],
+    },
+  });
+
+  // Fetch ledger entries in period
+  const ledgerEntries = await prisma.cashLedgerEntry.findMany({
+    where: {
+      AND: [
+        branchCond,
+        filterBranch,
+        { status: { in: [...SETTLED] } },
+        { deletedAt: null },
+        filters.from ? { entryDate: { gte: new Date(filters.from) } } : {},
+        filters.to ? { entryDate: { lte: new Date(filters.to) } } : {},
+      ],
+    },
+    include: {
+      customer: { select: { name: true } },
+      vendor: { select: { name: true } },
+    },
+  });
+
+  const ledgerItems: any[] = [];
+
+  invoices.forEach((inv) => {
+    ledgerItems.push({
+      id: inv.id,
+      date: inv.quotationDate,
+      voucherNo: inv.reference,
+      partyName: inv.partyName,
+      description: `Sales Invoice (${inv.brand})`,
+      debit: Number(inv.grandTotal),
+      credit: 0,
+      type: "INVOICE",
+    });
+  });
+
+  bills.forEach((bill) => {
+    ledgerItems.push({
+      id: bill.id,
+      date: bill.billDate.toISOString().slice(0, 10),
+      voucherNo: bill.billNumber,
+      partyName: bill.vendorName,
+      description: `Purchase Bill`,
+      debit: 0,
+      credit: Number(bill.amount),
+      type: "BILL",
+    });
+  });
+
+  ledgerEntries.forEach((entry) => {
+    const partyName = entry.partyName ?? entry.customer?.name ?? entry.vendor?.name ?? entry.particular;
+    if (entry.direction === LedgerDirection.CREDIT) {
+      ledgerItems.push({
+        id: entry.id,
+        date: entry.entryDate.toISOString().slice(0, 10),
+        voucherNo: entry.reference,
+        partyName,
+        description: entry.particular,
+        debit: 0,
+        credit: Number(entry.amount),
+        type: "RECEIPT",
+      });
+    } else {
+      ledgerItems.push({
+        id: entry.id,
+        date: entry.entryDate.toISOString().slice(0, 10),
+        voucherNo: entry.reference,
+        partyName,
+        description: entry.particular,
+        debit: Number(entry.amount),
+        credit: 0,
+        type: "PAYMENT",
+      });
+    }
+  });
+
+  ledgerItems.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  let balance = openingBalance;
+  let periodDebit = 0;
+  let periodCredit = 0;
+
+  const rows = ledgerItems.map((item) => {
+    balance += item.debit - item.credit;
+    periodDebit += item.debit;
+    periodCredit += item.credit;
+    return {
+      ...item,
+      balance,
+    };
+  });
+
+  return {
+    accountName: "All Accounts (Consolidated Ledger)",
+    openingBalance,
+    closingBalance: balance,
+    totalDebit: periodDebit,
+    totalCredit: periodCredit,
+    rows,
+  };
+}
+

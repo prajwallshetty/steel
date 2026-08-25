@@ -44,6 +44,8 @@ async function verifyLedgers() {
     id: superAdmin.id,
     role: superAdmin.role,
     branchId: null,
+    extraPermissions: [],
+    deniedPermissions: [],
   };
 
   // 1. Verify Customer Ledger (e.g. AAI ENTERPRISES and GANESH STEEL)

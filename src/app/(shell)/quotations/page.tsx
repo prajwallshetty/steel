@@ -148,6 +148,8 @@ export default async function QuotationsPage({ searchParams }: PageProps) {
                   <th scope="col" className="px-4 py-3 text-left font-semibold">Date</th>
                   <th scope="col" className="px-4 py-3 text-right font-semibold">Qty (MT)</th>
                   <th scope="col" className="px-4 py-3 text-right font-semibold">Grand Total</th>
+                  <th scope="col" className="px-4 py-3 text-center font-semibold">Payment Status</th>
+                  <th scope="col" className="px-4 py-3 text-right font-semibold">Outstanding</th>
 
                   <th scope="col" className="px-4 py-3 text-right font-semibold">
                     <span className="sr-only">Actions</span>
@@ -185,6 +187,22 @@ export default async function QuotationsPage({ searchParams }: PageProps) {
                     </td>
                     <td className="px-4 py-3 text-right font-bold text-foreground tabular-nums">
                       {formatMoney(quotation.grandTotal, grouping)}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border ${
+                          quotation.paymentStatus === "Paid"
+                            ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+                            : quotation.paymentStatus === "Partially Paid"
+                            ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
+                            : "bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30"
+                        }`}
+                      >
+                        {quotation.paymentStatus}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right font-semibold tabular-nums text-foreground">
+                      {formatMoney(quotation.outstandingAmount, grouping)}
                     </td>
 
                     <td className="px-4 py-3 text-right">

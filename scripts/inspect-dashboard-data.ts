@@ -51,7 +51,7 @@ async function inspectDashboardData() {
   for (const b of branches) {
     console.log(`Branch: ${b.name} (${b.code}) ID=${b.id}`);
     console.log(`  startingBalance: ${b.startingBalance}`);
-    console.log(`  customers: ${b._count.customers}, vendors: ${b._count.vendors}, quotations: ${b._count.quotations}, ledger: ${b._count.cashLedgerEntries}`);
+    console.log(`  customers: ${b._count.customers}, vendors: ${b._count.vendors}, quotations: ${b._count.quotations}, ledger: ${b._count.ledgerEntries}`);
   }
 
   const openingBalances = await prisma.ledgerOpeningBalance.findMany({});

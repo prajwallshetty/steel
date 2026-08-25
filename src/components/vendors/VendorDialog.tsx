@@ -34,7 +34,7 @@ export function VendorDialog({
   const editing = Boolean(vendor?.id);
 
   const form = useForm<VendorInput>({
-    resolver: zodResolver(vendorSchema),
+    resolver: zodResolver(vendorSchema) as any,
     defaultValues: {
       name: vendor?.name ?? "",
       phone: vendor?.phone ?? "",

@@ -34,7 +34,7 @@ export function CustomerDialog({
   const editing = Boolean(customer?.id);
 
   const form = useForm<CustomerInput>({
-    resolver: zodResolver(customerSchema),
+    resolver: zodResolver(customerSchema) as any,
     defaultValues: {
       name: customer?.name ?? "",
       phone: customer?.phone ?? "",

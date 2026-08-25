@@ -27,7 +27,7 @@ export const vendorSchema = z.object({
     .regex(/^[0-9]{6}$/, "PIN must be 6 digits")
     .optional()
     .or(z.literal("")),
-  balance: z.coerce.number().optional().default(0),
+  balance: z.coerce.number().default(0),
   /** Ignored for non-super users — the branch comes from their session. */
   branchId: z.string().trim().optional().or(z.literal("")),
 });

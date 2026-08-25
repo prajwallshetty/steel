@@ -55,11 +55,14 @@ export interface QuotationListItem {
   readonly id: string;
   readonly reference: string;
   readonly status: QuotationStatus;
+  readonly paymentStatus: "Pending" | "Partially Paid" | "Paid";
   readonly partyName: string;
   readonly brand: string;
   readonly location: string;
   readonly quotationDate: string;
   readonly grandTotal: number;
+  readonly paidAmount: number;
+  readonly outstandingAmount: number;
   readonly totalQuantity: number;
   readonly branchName: string;
   readonly createdByName: string;
@@ -117,6 +120,16 @@ export async function listQuotations(
       include: {
         branch: { select: { name: true } },
         createdBy: { select: { name: true } },
+        ledgerEntries: {
+          where: {
+            AND: [
+              NOT_DELETED,
+              { direction: LedgerDirection.CREDIT },
+              { status: { in: [LedgerStatus.RECEIVED, LedgerStatus.CLEARED] } },
+            ],
+          },
+          select: { amount: true },
+        },
       },
     }),
     prisma.quotation.count({ where }),
@@ -124,20 +137,35 @@ export async function listQuotations(
 
   return {
     total,
-    items: records.map((record) => ({
-      id: record.id,
-      reference: record.reference,
-      status: record.status,
-      partyName: record.partyName,
-      brand: record.brand,
-      location: record.location,
-      quotationDate: record.quotationDate,
-      grandTotal: Number(record.grandTotal),
-      totalQuantity: Number(record.totalQuantity),
-      branchName: record.branch.name,
-      createdByName: record.createdBy?.name ?? "System",
-      updatedAt: record.updatedAt.toISOString(),
-    })),
+    items: records.map((record) => {
+      const grandTotal = Number(record.grandTotal);
+      const paidAmount = record.ledgerEntries.reduce((sum, entry) => sum + Number(entry.amount), 0);
+      const outstandingAmount = Math.max(0, grandTotal - paidAmount);
+      let paymentStatus: "Pending" | "Partially Paid" | "Paid" = "Pending";
+      if (paidAmount >= grandTotal && grandTotal > 0) {
+        paymentStatus = "Paid";
+      } else if (paidAmount > 0) {
+        paymentStatus = "Partially Paid";
+      }
+
+      return {
+        id: record.id,
+        reference: record.reference,
+        status: record.status,
+        paymentStatus,
+        partyName: record.partyName,
+        brand: record.brand,
+        location: record.location,
+        quotationDate: record.quotationDate,
+        grandTotal,
+        paidAmount,
+        outstandingAmount,
+        totalQuantity: Number(record.totalQuantity),
+        branchName: record.branch.name,
+        createdByName: record.createdBy?.name ?? "System",
+        updatedAt: record.updatedAt.toISOString(),
+      };
+    }),
   };
 }
 
@@ -251,7 +279,7 @@ export async function createQuotation(
     const q = await tx.quotation.create({
       data: {
         reference,
-        status: QuotationStatus.COMPLETED,
+        status: input.status ?? QuotationStatus.APPROVED,
         branchId,
         customerId: input.customerId ?? null,
         assignedToId,
@@ -273,30 +301,6 @@ export async function createQuotation(
         rows: { create: rowsToCreate(input) },
       },
       include: QUOTATION_INCLUDE,
-    });
-
-    const receiptSerial = await nextSequenceValue(branchId, "RECEIPT", year, tx);
-    const receiptReference = formatReference(branch.code, "RECEIPT", year, receiptSerial);
-    
-    await tx.cashLedgerEntry.create({
-      data: {
-        reference: receiptReference,
-        entryDate: new Date(input.header.date),
-        branchId,
-        customerId: input.customerId ?? null,
-        quotationId: q.id,
-        partyType: "CUSTOMER",
-        partyName: input.header.partyName,
-        direction: LedgerDirection.CREDIT,
-        amount: new Prisma.Decimal(totals.grandTotal),
-        paymentMethod: "CASH",
-        particular: `Auto-generated receipt for Quotation ${reference}`,
-        status: LedgerStatus.RECEIVED,
-        createdById: subject.id,
-        updatedById: subject.id,
-        approvedById: subject.id,
-        approvedAt: new Date(),
-      }
     });
 
     return q;
@@ -349,7 +353,7 @@ export async function updateQuotation(
     const q = await tx.quotation.update({
       where: { id },
       data: {
-        status: QuotationStatus.COMPLETED,
+        status: input.status ?? existing.status,
         customerId: input.customerId ?? existing.customerId,
         assignedToId:
           subject.role === Role.MANAGER
@@ -373,15 +377,6 @@ export async function updateQuotation(
         rows: { create: rowsToCreate(input) },
       },
       include: QUOTATION_INCLUDE,
-    });
-
-    await tx.cashLedgerEntry.updateMany({
-      where: { quotationId: id, direction: LedgerDirection.CREDIT, deletedAt: null },
-      data: {
-        amount: q.grandTotal,
-        entryDate: new Date(q.quotationDate),
-        partyName: q.partyName,
-      }
     });
 
     return q;
@@ -688,3 +683,65 @@ const pastTense = (status: QuotationStatus): string => {
       return "Updated";
   }
 };
+
+export async function getQuotationWithPaymentDetails(
+  subject: ScopeSubject,
+  id: string,
+) {
+  const quotation = await getQuotation(subject, id);
+  if (!quotation) return null;
+
+  const ledgerEntries = await prisma.cashLedgerEntry.findMany({
+    where: {
+      quotationId: id,
+      direction: LedgerDirection.CREDIT,
+      status: { in: [LedgerStatus.RECEIVED, LedgerStatus.CLEARED] },
+      deletedAt: null,
+    },
+    orderBy: { entryDate: "desc" },
+    select: {
+      id: true,
+      reference: true,
+      entryDate: true,
+      amount: true,
+      paymentMethod: true,
+      particular: true,
+    },
+  });
+
+  const record = await prisma.quotation.findFirst({
+    where: { id },
+    select: { grandTotal: true },
+  });
+
+  const grandTotal = Number(record?.grandTotal ?? 0);
+  const paidAmount = ledgerEntries.reduce(
+    (sum, entry) => sum + Number(entry.amount),
+    0,
+  );
+  const outstandingAmount = Math.max(0, grandTotal - paidAmount);
+
+  let paymentStatus: "Pending" | "Partially Paid" | "Paid" = "Pending";
+  if (paidAmount >= grandTotal && grandTotal > 0) {
+    paymentStatus = "Paid";
+  } else if (paidAmount > 0) {
+    paymentStatus = "Partially Paid";
+  }
+
+  return {
+    quotation,
+    grandTotal,
+    paidAmount,
+    outstandingAmount,
+    paymentStatus,
+    payments: ledgerEntries.map((e) => ({
+      id: e.id,
+      reference: e.reference,
+      entryDate: e.entryDate.toISOString().slice(0, 10),
+      amount: Number(e.amount),
+      paymentMethod: e.paymentMethod,
+      particular: e.particular,
+    })),
+  };
+}
+

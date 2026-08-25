@@ -161,22 +161,24 @@ async function main() {
     where: { username: "mangalore.manager1" },
   });
 
-  const customer = await prisma.customer.upsert({
-    where: {
-      branchId_name: { branchId: mangalore.id, name: "SADGURU TRADERS" },
-    },
-    update: {},
-    create: {
-      name: "SADGURU TRADERS",
-      phone: "+91 98450 00000",
-      gstNumber: "29SADGU1234F1Z5",
-      city: "Ghotwade",
-      state: "Karnataka",
-      branchId: mangalore.id,
-      createdById: manager?.id ?? superAdmin.id,
-      updatedById: manager?.id ?? superAdmin.id,
-    },
+  let customer = await prisma.customer.findFirst({
+    where: { branchId: mangalore.id, name: "SADGURU TRADERS" },
   });
+
+  if (!customer) {
+    customer = await prisma.customer.create({
+      data: {
+        name: "SADGURU TRADERS",
+        phone: "+91 98450 00000",
+        gstNumber: "29SADGU1234F1Z5",
+        city: "Ghotwade",
+        state: "Karnataka",
+        branchId: mangalore.id,
+        createdById: manager?.id ?? superAdmin.id,
+        updatedById: manager?.id ?? superAdmin.id,
+      },
+    });
+  }
 
   const reference = "MNG/QT/2026/0001";
   const existingQuotation = await prisma.quotation.findUnique({

@@ -44,6 +44,8 @@ async function testLedgerStatements() {
     id: superAdmin.id,
     role: superAdmin.role,
     branchId: null,
+    extraPermissions: [],
+    deniedPermissions: [],
   };
 
   const aai = await prisma.customer.findFirst({ where: { name: "AAI ENTERPRISES" } });

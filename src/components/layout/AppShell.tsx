@@ -13,9 +13,11 @@ import {
   Plus,
   ScrollText,
   Settings2,
+  TrendingUp,
   Users,
   Wallet,
   X,
+  CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -84,10 +86,22 @@ const PRIMARY_NAV: readonly NavItem[] = [
     anyOf: ["ledger:view_all", "ledger:view_branch", "ledger:view_own"],
   },
   {
+    href: "/customer-outstanding",
+    label: "Customer Outstanding",
+    icon: TrendingUp,
+    anyOf: ["customer:view", "ledger:view_all", "ledger:view_branch", "ledger:view_own"],
+  },
+  {
     href: "/vendor-payments",
     label: "Vendor Payment",
     icon: Wallet,
     anyOf: ["ledger:view_all", "ledger:view_branch", "ledger:view_own"],
+  },
+  {
+    href: "/vendor-outstanding",
+    label: "Vendor Outstanding",
+    icon: CreditCard,
+    anyOf: ["customer:view", "ledger:view_all", "ledger:view_branch", "ledger:view_own"],
   },
   {
     href: "/ledger",

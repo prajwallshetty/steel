@@ -75,6 +75,8 @@ async function testDashboard() {
       role: "BRANCH_ADMIN" as const,
       branchId: mngBranch.id,
       email: "mng@example.com",
+      extraPermissions: [],
+      deniedPermissions: [],
     };
     const mngMetrics = await getDashboardMetrics(mngUser);
     console.log("\n--- MANGALORE BRANCH ADMIN METRICS ---");

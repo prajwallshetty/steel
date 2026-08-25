@@ -27,8 +27,8 @@ export const customerSchema = z.object({
     .regex(/^[0-9]{6}$/, "PIN must be 6 digits")
     .optional()
     .or(z.literal("")),
-  garudaBalance: z.coerce.number().optional().default(0),
-  currentDues: z.coerce.number().optional().default(0),
+  garudaBalance: z.coerce.number().default(0),
+  currentDues: z.coerce.number().default(0),
   /** Ignored for non-super users — the branch comes from their session. */
   branchId: z.string().trim().optional().or(z.literal("")),
 });

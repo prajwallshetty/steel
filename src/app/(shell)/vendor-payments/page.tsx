@@ -156,7 +156,7 @@ export default async function VendorPaymentsPage({ searchParams }: PageProps) {
             <div>
               <p className="font-semibold text-lg text-foreground">No transaction entries found</p>
               <p className="text-sm text-muted-foreground">
-                Click "Record Vendor Payment" to add a payment or receipt transaction.
+                Click &quot;Record Vendor Payment&quot; to add a payment or receipt transaction.
               </p>
             </div>
           </CardContent>

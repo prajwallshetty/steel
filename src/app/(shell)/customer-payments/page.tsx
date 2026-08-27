@@ -157,7 +157,7 @@ export default async function CustomerPaymentsPage({ searchParams }: PageProps) 
             <div>
               <p className="font-semibold text-lg text-foreground">No transaction entries found</p>
               <p className="text-sm text-muted-foreground">
-                Click "Record Customer Payment" to add a receipt or payment transaction.
+                Click &quot;Record Customer Payment&quot; to add a receipt or payment transaction.
               </p>
             </div>
           </CardContent>

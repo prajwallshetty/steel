@@ -159,7 +159,7 @@ export function PWAInstallBanner() {
                 </div>
                 <div className="space-y-0.5">
                   <p className="font-semibold text-foreground flex items-center gap-1.5">
-                    Select "Add to Home Screen" <PlusSquare className="size-3.5 text-primary inline" />
+                    Select &quot;Add to Home Screen&quot; <PlusSquare className="size-3.5 text-primary inline" />
                   </p>
                   <p className="text-muted-foreground">Scroll down the share menu options list.</p>
                 </div>
@@ -170,7 +170,7 @@ export function PWAInstallBanner() {
                   3
                 </div>
                 <div className="space-y-0.5">
-                  <p className="font-semibold text-foreground">Tap "Add"</p>
+                  <p className="font-semibold text-foreground">Tap &quot;Add&quot;</p>
                   <p className="text-muted-foreground">In the top-right corner to launch as native app.</p>
                 </div>
               </div>

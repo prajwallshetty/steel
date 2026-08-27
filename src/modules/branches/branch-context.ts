@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { Role } from "@prisma/client";
 import type { ScopeSubject } from "@/modules/permissions/scope";
 
-export const ACTIVE_BRANCH_COOKIE = "steel_active_branch";
+const ACTIVE_BRANCH_COOKIE = "steel_active_branch";
 
 /**
  * Resolve the active branch filter for queries.

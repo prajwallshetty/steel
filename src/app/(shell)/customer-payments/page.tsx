@@ -14,6 +14,8 @@ import { PageHeading } from "@/components/layout/PageHeading";
 import { CustomerPaymentDialog } from "@/components/receipt-payment/CustomerPaymentDialog";
 import { PartnerPaymentRowActions } from "@/components/receipt-payment/PartnerPaymentRowActions";
 
+import { getActiveBranchFilter } from "@/modules/branches/branch-context";
+
 export const metadata: Metadata = { title: "Customer Payments" };
 export const dynamic = "force-dynamic";
 
@@ -31,6 +33,7 @@ export default async function CustomerPaymentsPage({ searchParams }: PageProps) 
   const user = await requireAnyPermission(VIEW_PERMISSIONS);
   const params = await searchParams;
 
+  const activeBranchId = await getActiveBranchFilter(user, params.branchId);
   const isSuper = user.role === Role.SUPER_ADMIN;
   const canApprove = hasPermission(user, PERMISSIONS.LEDGER_APPROVE);
 
@@ -47,9 +50,9 @@ export default async function CustomerPaymentsPage({ searchParams }: PageProps) 
       status: params.status as LedgerStatus | undefined,
       paymentMethod: params.paymentMethod as PaymentMethod | undefined,
       direction: params.direction as LedgerDirection | undefined,
-      branchId: params.branchId,
+      branchId: activeBranchId,
     }),
-    listSelectableCustomers(user, user.branchId ?? undefined),
+    listSelectableCustomers(user, activeBranchId),
     isSuper ? listSelectableBranches(user) : Promise.resolve([]),
     getSettings(user.branchId),
   ]);

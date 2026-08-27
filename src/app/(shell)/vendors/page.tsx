@@ -11,6 +11,8 @@ import { PageHeading } from "@/components/layout/PageHeading";
 import { VendorDialog } from "@/components/vendors/VendorDialog";
 import { VendorRowActions } from "@/components/vendors/VendorRowActions";
 
+import { getActiveBranchFilter } from "@/modules/branches/branch-context";
+
 export const metadata: Metadata = { title: "Vendors" };
 export const dynamic = "force-dynamic";
 
@@ -22,10 +24,11 @@ export default async function VendorsPage({ searchParams }: PageProps) {
   const user = await requirePermission(PERMISSIONS.CUSTOMER_VIEW);
   const params = await searchParams;
 
+  const activeBranchId = await getActiveBranchFilter(user, params.branchId);
   const isSuper = user.role === Role.SUPER_ADMIN;
 
   const [vendors, branches] = await Promise.all([
-    listVendors(user, { search: params.search, branchId: params.branchId }),
+    listVendors(user, { search: params.search, branchId: activeBranchId }),
     isSuper ? listSelectableBranches(user) : Promise.resolve([]),
   ]);
 

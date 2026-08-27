@@ -9,6 +9,9 @@ import {
 import { getSettings } from "@/modules/settings/settings-service";
 import { AppShell } from "@/components/layout/AppShell";
 
+import { listSelectableBranches } from "@/modules/branches/branch-service";
+import { getActiveBranchFilter } from "@/modules/branches/branch-context";
+
 export const dynamic = "force-dynamic";
 
 /**
@@ -22,10 +25,14 @@ export default async function ShellLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   const user = await requireUser();
 
-  const [notifications, unreadCount, settings] = await Promise.all([
+  const isSuper = user.role === Role.SUPER_ADMIN;
+
+  const [notifications, unreadCount, settings, branches, activeBranchId] = await Promise.all([
     listNotifications(user.id, 20),
     countUnread(user.id),
     getSettings(user.branchId),
+    isSuper ? listSelectableBranches(user) : Promise.resolve([]),
+    isSuper ? getActiveBranchFilter(user) : Promise.resolve(undefined),
   ]);
 
   if (settings.maintenanceMode && user.role !== Role.SUPER_ADMIN) {
@@ -49,6 +56,8 @@ export default async function ShellLayout({
         read: notification.readAt !== null,
         createdAt: notification.createdAt.toISOString(),
       }))}
+      branches={branches}
+      activeBranchId={activeBranchId}
       maintenanceMode={Boolean(settings.maintenanceMode)}
     >
       {children}

@@ -85,11 +85,11 @@ describe("role baselines", () => {
     expect(hasPermission(mangaloreAdmin, PERMISSIONS.QUOTATION_APPROVE)).toBe(true);
   });
 
-  it("restricts a manager to their own records and no administration", () => {
+  it("restricts a manager to their branch and no administration", () => {
     expect(hasPermission(mangaloreManager, PERMISSIONS.QUOTATION_CREATE)).toBe(true);
     expect(hasPermission(mangaloreManager, PERMISSIONS.QUOTATION_VIEW_OWN)).toBe(true);
+    expect(hasPermission(mangaloreManager, PERMISSIONS.QUOTATION_VIEW_BRANCH)).toBe(true);
 
-    expect(hasPermission(mangaloreManager, PERMISSIONS.QUOTATION_VIEW_BRANCH)).toBe(false);
     expect(hasPermission(mangaloreManager, PERMISSIONS.QUOTATION_APPROVE)).toBe(false);
     expect(hasPermission(mangaloreManager, PERMISSIONS.QUOTATION_DELETE)).toBe(false);
     expect(hasPermission(mangaloreManager, PERMISSIONS.USER_CREATE)).toBe(false);
@@ -152,14 +152,12 @@ describe("data scoping", () => {
     });
   });
 
-  it("pins a manager to their own records inside their branch", () => {
+  it("pins a manager to their branch scope", () => {
     expect(quotationWhere(quotationScope(mangaloreManager))).toEqual({
       branchId: "b-mng",
-      OR: [{ createdById: "u-mng-mgr" }, { assignedToId: "u-mng-mgr" }],
     });
     expect(ledgerWhere(ledgerScope(mangaloreManager))).toEqual({
       branchId: "b-mng",
-      createdById: "u-mng-mgr",
     });
   });
 
@@ -215,10 +213,10 @@ describe("record-level mutation checks", () => {
   const colleague = { branchId: "b-mng", ownerIds: ["u-other"] };
   const otherBranch = { branchId: "b-mah", ownerIds: ["u-mng-mgr"] };
 
-  it("lets a manager change only their own records", () => {
+  it("lets a manager change records in their branch", () => {
     const scope = quotationScope(mangaloreManager);
     expect(canMutateRecord(scope, own)).toBe(true);
-    expect(canMutateRecord(scope, colleague)).toBe(false);
+    expect(canMutateRecord(scope, colleague)).toBe(true);
     expect(canMutateRecord(scope, otherBranch)).toBe(false);
   });
 

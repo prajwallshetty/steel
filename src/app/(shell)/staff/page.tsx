@@ -12,6 +12,8 @@ import { StaffDialog } from "@/components/staff/StaffDialog";
 import { StaffPaymentDialog } from "@/components/staff/StaffPaymentDialog";
 import { StaffRowActions } from "@/components/staff/StaffRowActions";
 
+import { getActiveBranchFilter } from "@/modules/branches/branch-context";
+
 export const metadata: Metadata = { title: "Staff" };
 export const dynamic = "force-dynamic";
 
@@ -23,10 +25,11 @@ export default async function StaffPage({ searchParams }: PageProps) {
   const user = await requirePermission(PERMISSIONS.STAFF_VIEW);
   const params = await searchParams;
 
+  const activeBranchId = await getActiveBranchFilter(user, params.branchId);
   const isSuper = user.role === Role.SUPER_ADMIN;
 
   const [staffMembers, branches] = await Promise.all([
-    listStaff(user, { search: params.search, branchId: params.branchId }),
+    listStaff(user, { search: params.search, branchId: activeBranchId }),
     isSuper ? listSelectableBranches(user) : Promise.resolve([]),
   ]);
 

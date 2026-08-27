@@ -13,6 +13,8 @@ import { PageHeading } from "@/components/layout/PageHeading";
 import { Button } from "@/components/ui/button";
 import { formatMoney, formatListDate } from "@/lib/format/number";
 
+import { getActiveBranchFilter } from "@/modules/branches/branch-context";
+
 export const metadata: Metadata = { title: "Vendor Outstanding" };
 export const dynamic = "force-dynamic";
 
@@ -24,12 +26,13 @@ export default async function VendorOutstandingPage({ searchParams }: PageProps)
   const user = await requirePermission(PERMISSIONS.CUSTOMER_VIEW);
   const params = await searchParams;
 
+  const activeBranchId = await getActiveBranchFilter(user, params.branchId);
   const isSuper = user.role === Role.SUPER_ADMIN;
 
   const [data, branches, settings] = await Promise.all([
     listVendorOutstanding(user, {
       search: params.search,
-      branchId: params.branchId,
+      branchId: activeBranchId,
       from: params.from,
       to: params.to,
       sortBy: params.sortBy as any,

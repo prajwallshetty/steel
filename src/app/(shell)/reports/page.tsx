@@ -15,6 +15,8 @@ import { PageHeading } from "@/components/layout/PageHeading";
 import { ReportTabs } from "@/components/reports/ReportTabs";
 import { ExportButton } from "@/components/reports/ExportButton";
 
+import { getActiveBranchFilter } from "@/modules/branches/branch-context";
+
 export const metadata: Metadata = { title: "Reports" };
 export const dynamic = "force-dynamic";
 
@@ -41,6 +43,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
   const user = await requireAnyPermission(VIEW_PERMISSIONS);
   const params = await searchParams;
 
+  const activeBranchId = await getActiveBranchFilter(user, params.branchId);
   const isSuper = user.role === Role.SUPER_ADMIN;
   const available = REPORTS.filter((report) => !report.superOnly || isSuper);
 
@@ -53,7 +56,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
   const filters = {
     from: params.from,
     to: params.to,
-    branchId: params.branchId,
+    branchId: activeBranchId,
     status: params.status,
   };
 

@@ -14,6 +14,8 @@ import { PageHeading } from "@/components/layout/PageHeading";
 import { VendorPaymentDialog } from "@/components/receipt-payment/VendorPaymentDialog";
 import { PartnerPaymentRowActions } from "@/components/receipt-payment/PartnerPaymentRowActions";
 
+import { getActiveBranchFilter } from "@/modules/branches/branch-context";
+
 export const metadata: Metadata = { title: "Vendor Payments" };
 export const dynamic = "force-dynamic";
 
@@ -31,6 +33,7 @@ export default async function VendorPaymentsPage({ searchParams }: PageProps) {
   const user = await requireAnyPermission(VIEW_PERMISSIONS);
   const params = await searchParams;
 
+  const activeBranchId = await getActiveBranchFilter(user, params.branchId);
   const isSuper = user.role === Role.SUPER_ADMIN;
 
   const [
@@ -46,9 +49,9 @@ export default async function VendorPaymentsPage({ searchParams }: PageProps) {
       status: params.status as LedgerStatus | undefined,
       paymentMethod: params.paymentMethod as PaymentMethod | undefined,
       direction: params.direction as LedgerDirection | undefined,
-      branchId: params.branchId,
+      branchId: activeBranchId,
     }),
-    listSelectableVendors(user, user.branchId ?? undefined),
+    listSelectableVendors(user, activeBranchId),
     isSuper ? listSelectableBranches(user) : Promise.resolve([]),
     getSettings(user.branchId),
   ]);

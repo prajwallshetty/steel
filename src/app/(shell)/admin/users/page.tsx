@@ -15,6 +15,8 @@ import { UserRowActions } from "@/components/users/UserRowActions";
 export const metadata: Metadata = { title: "Users" };
 export const dynamic = "force-dynamic";
 
+import { getActiveBranchFilter } from "@/modules/branches/branch-context";
+
 export default async function UsersPage({
   searchParams,
 }: {
@@ -26,10 +28,11 @@ export default async function UsersPage({
   ]);
   const params = await searchParams;
 
+  const activeBranchId = await getActiveBranchFilter(user, params.branchId);
   const isSuper = user.role === Role.SUPER_ADMIN;
 
   const [users, branches] = await Promise.all([
-    listUsers(user, { search: params.search, branchId: params.branchId }),
+    listUsers(user, { search: params.search, branchId: activeBranchId }),
     isSuper ? listSelectableBranches(user) : Promise.resolve([]),
   ]);
 

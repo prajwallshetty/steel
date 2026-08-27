@@ -97,6 +97,7 @@ const isoDay = (date: Date) => date.toISOString().slice(0, 10);
 export interface DashboardFilters {
   readonly from?: string;
   readonly to?: string;
+  readonly branchId?: string;
 }
 
 export const getDashboardMetrics = cache(
@@ -113,6 +114,7 @@ export const getDashboardMetrics = cache(
 
   const from = filters?.from;
   const to = filters?.to;
+  const filterBranchId = filters?.branchId;
   const isFiltered = Boolean(from || to);
 
   // For period-based queries
@@ -131,8 +133,8 @@ export const getDashboardMetrics = cache(
   const chartStartDay = isFiltered ? startDay : isoDay(chartStart);
   const chartEndDay = isFiltered ? endDay : isoDay(chartEnd);
 
-  const quotationBase = { AND: [qScope, NOT_DELETED] };
-  const ledgerBase = { AND: [lScope, NOT_DELETED] };
+  const quotationBase = { AND: [qScope, NOT_DELETED, filterBranchId ? { branchId: filterBranchId } : {}] };
+  const ledgerBase = { AND: [lScope, NOT_DELETED, filterBranchId ? { branchId: filterBranchId } : {}] };
   const isSuper = subject.role === Role.SUPER_ADMIN;
 
   const [
@@ -217,13 +219,21 @@ export const getDashboardMetrics = cache(
     prisma.customer.count({
       where: {
         ...NOT_DELETED,
-        ...(isSuper ? {} : { branchId: subject.branchId ?? "__none__" }),
+        ...(filterBranchId
+          ? { branchId: filterBranchId }
+          : isSuper
+          ? {}
+          : { branchId: subject.branchId ?? "__none__" }),
       },
     }),
     prisma.vendor.count({
       where: {
         ...NOT_DELETED,
-        ...(isSuper ? {} : { branchId: subject.branchId ?? "__none__" }),
+        ...(filterBranchId
+          ? { branchId: filterBranchId }
+          : isSuper
+          ? {}
+          : { branchId: subject.branchId ?? "__none__" }),
       },
     }),
     prisma.cashLedgerEntry.aggregate({
@@ -444,7 +454,11 @@ export const getDashboardMetrics = cache(
       _sum: { amount: true },
       where: {
         AND: [
-          isSuper ? {} : { branchId: subject.branchId ?? "__none__" },
+          filterBranchId
+            ? { branchId: filterBranchId }
+            : isSuper
+            ? {}
+            : { branchId: subject.branchId ?? "__none__" },
           NOT_DELETED,
           { billDate: { lte: balanceEndDate } },
         ],
@@ -470,7 +484,11 @@ export const getDashboardMetrics = cache(
       _sum: { currentDues: true },
       where: {
         ...NOT_DELETED,
-        ...(isSuper ? {} : { branchId: subject.branchId ?? "__none__" }),
+        ...(filterBranchId
+          ? { branchId: filterBranchId }
+          : isSuper
+          ? {}
+          : { branchId: subject.branchId ?? "__none__" }),
       },
     }),
 
@@ -479,7 +497,11 @@ export const getDashboardMetrics = cache(
       _sum: { balance: true },
       where: {
         ...NOT_DELETED,
-        ...(isSuper ? {} : { branchId: subject.branchId ?? "__none__" }),
+        ...(filterBranchId
+          ? { branchId: filterBranchId }
+          : isSuper
+          ? {}
+          : { branchId: subject.branchId ?? "__none__" }),
       },
     }),
 
@@ -598,7 +620,11 @@ export const getDashboardMetrics = cache(
     where: {
       ...NOT_DELETED,
       status: "ACTIVE",
-      ...(isSuper ? {} : { id: subject.branchId ?? "__none__" }),
+      ...(filterBranchId
+        ? { id: filterBranchId }
+        : isSuper
+        ? {}
+        : { id: subject.branchId ?? "__none__" }),
     },
     select: { id: true, name: true, code: true, startingBalance: true },
     orderBy: { name: "asc" },
@@ -610,7 +636,11 @@ export const getDashboardMetrics = cache(
       where: {
         AND: [
           NOT_DELETED,
-          isSuper ? {} : { branchId: subject.branchId ?? "__none__" },
+          filterBranchId
+            ? { branchId: filterBranchId }
+            : isSuper
+            ? {}
+            : { branchId: subject.branchId ?? "__none__" },
           { garudaBalance: { lt: 0 } },
         ],
       },
@@ -620,7 +650,11 @@ export const getDashboardMetrics = cache(
       where: {
         AND: [
           NOT_DELETED,
-          isSuper ? {} : { branchId: subject.branchId ?? "__none__" },
+          filterBranchId
+            ? { branchId: filterBranchId }
+            : isSuper
+            ? {}
+            : { branchId: subject.branchId ?? "__none__" },
           { balance: { lt: 0 } },
         ],
       },
@@ -630,7 +664,11 @@ export const getDashboardMetrics = cache(
       where: {
         AND: [
           NOT_DELETED,
-          isSuper ? {} : { branchId: subject.branchId ?? "__none__" },
+          filterBranchId
+            ? { branchId: filterBranchId }
+            : isSuper
+            ? {}
+            : { branchId: subject.branchId ?? "__none__" },
           { balance: { lt: 0 } },
         ],
       },

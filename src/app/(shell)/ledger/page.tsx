@@ -14,6 +14,8 @@ import { PageHeading } from "@/components/layout/PageHeading";
 import { LedgerFilter } from "./LedgerFilter";
 import { Button } from "@/components/ui/button";
 
+import { getActiveBranchFilter } from "@/modules/branches/branch-context";
+
 export const metadata: Metadata = { title: "Ledger Accounts" };
 export const dynamic = "force-dynamic";
 
@@ -31,9 +33,11 @@ export default async function CustomerLedgerPage({ searchParams }: PageProps) {
   const user = await requireAnyPermission(VIEW_PERMISSIONS);
   const params = await searchParams;
 
+  const activeBranchId = await getActiveBranchFilter(user, params.branchId);
+
   const [customers, vendors, settings] = await Promise.all([
-    listSelectableCustomers(user, user.branchId ?? undefined),
-    listSelectableVendors(user, user.branchId ?? undefined),
+    listSelectableCustomers(user, activeBranchId),
+    listSelectableVendors(user, activeBranchId),
     getSettings(user.branchId),
   ]);
 
@@ -53,7 +57,7 @@ export default async function CustomerLedgerPage({ searchParams }: PageProps) {
       ledger = await getVendorLedger(user, selectedVendorId, {
         from: params.from,
         to: params.to,
-        branchId: user.branchId ?? undefined,
+        branchId: activeBranchId,
       });
     } catch (e) {
       console.error(e);
@@ -64,7 +68,7 @@ export default async function CustomerLedgerPage({ searchParams }: PageProps) {
       ledger = await getCustomerLedger(user, selectedCustomerId, {
         from: params.from,
         to: params.to,
-        branchId: user.branchId ?? undefined,
+        branchId: activeBranchId,
       });
     } catch (e) {
       console.error(e);
@@ -75,7 +79,7 @@ export default async function CustomerLedgerPage({ searchParams }: PageProps) {
       ledger = await getConsolidatedLedger(user, {
         from: params.from,
         to: params.to,
-        branchId: user.branchId ?? undefined,
+        branchId: activeBranchId,
       });
     } catch (e) {
       console.error(e);

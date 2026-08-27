@@ -28,6 +28,8 @@ import { FilterBar } from "@/components/shared/FilterBar";
 export const metadata: Metadata = { title: "Dashboard" };
 export const dynamic = "force-dynamic";
 
+import { getActiveBranchFilter } from "@/modules/branches/branch-context";
+
 interface PageProps {
   readonly searchParams: Promise<Record<string, string | undefined>>;
 }
@@ -36,9 +38,12 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const user = await requireUser();
   const params = await searchParams;
 
+  const activeBranchId = await getActiveBranchFilter(user, params.branchId);
+
   const filters = {
     from: params.from,
     to: params.to,
+    branchId: activeBranchId,
   };
 
   const [metrics, settings] = await Promise.all([

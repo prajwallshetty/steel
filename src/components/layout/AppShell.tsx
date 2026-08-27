@@ -29,6 +29,8 @@ import { PWAInstallBanner } from "./PWAInstallBanner";
 import { ROLE_LABELS, type Permission } from "@/modules/permissions/permissions";
 import type { Role } from "@prisma/client";
 
+import { BranchSwitcher, type BranchOption } from "@/components/layout/BranchSwitcher";
+
 export interface ShellUser {
   readonly name: string;
   readonly role: Role;
@@ -138,23 +140,20 @@ const ADMIN_NAV: readonly NavItem[] = [
   },
 ];
 
-/**
- * Application chrome.
- *
- * Navigation is filtered by the caller's permissions — but that is presentation
- * only. Every destination re-checks server-side, so hiding a link is a courtesy
- * rather than a control.
- */
 export function AppShell({
   user,
   notifications,
   unreadCount,
+  branches,
+  activeBranchId,
   maintenanceMode,
   children,
 }: {
   readonly user: ShellUser;
   readonly notifications: readonly ShellNotification[];
   readonly unreadCount: number;
+  readonly branches?: readonly BranchOption[];
+  readonly activeBranchId?: string;
   readonly maintenanceMode?: boolean;
   readonly children: React.ReactNode;
 }) {
@@ -320,6 +319,13 @@ export function AppShell({
               <span className="hidden xs:inline">ERP</span>
             </Link>
           </div>
+
+          {/* Super Admin Branch Switcher */}
+          {user.role === "SUPER_ADMIN" && branches && branches.length > 0 && (
+            <div className="flex items-center">
+              <BranchSwitcher branches={branches} activeBranchId={activeBranchId} />
+            </div>
+          )}
 
           <div className="ml-auto flex items-center gap-2 sm:gap-4">
             <NotificationBell

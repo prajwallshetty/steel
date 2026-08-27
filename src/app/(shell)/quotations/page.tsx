@@ -15,6 +15,8 @@ import { FilterBar } from "@/components/shared/FilterBar";
 import { PageHeading } from "@/components/layout/PageHeading";
 import { EDITABLE_STATUSES } from "@/types/quotation";
 
+import { getActiveBranchFilter } from "@/modules/branches/branch-context";
+
 export const metadata: Metadata = { title: "Quotations" };
 export const dynamic = "force-dynamic";
 
@@ -32,13 +34,14 @@ export default async function QuotationsPage({ searchParams }: PageProps) {
   const user = await requireAnyPermission(VIEW_PERMISSIONS);
   const params = await searchParams;
 
+  const activeBranchId = await getActiveBranchFilter(user, params.branchId);
   const canSeeAllBranches = hasPermission(user, PERMISSIONS.QUOTATION_VIEW_ALL);
 
   const [{ items, total }, settings, branches] = await Promise.all([
     listQuotations(user, {
       search: params.search,
       status: params.status as QuotationStatus | undefined,
-      branchId: params.branchId,
+      branchId: activeBranchId,
       from: params.from,
       to: params.to,
       take: 100,

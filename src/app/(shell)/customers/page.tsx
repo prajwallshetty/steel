@@ -13,6 +13,8 @@ import { CustomerDialog } from "@/components/customers/CustomerDialog";
 import { CustomerRowActions } from "@/components/customers/CustomerRowActions";
 import { Button } from "@/components/ui/button";
 
+import { getActiveBranchFilter } from "@/modules/branches/branch-context";
+
 export const metadata: Metadata = { title: "Customers" };
 export const dynamic = "force-dynamic";
 
@@ -24,10 +26,11 @@ export default async function CustomersPage({ searchParams }: PageProps) {
   const user = await requirePermission(PERMISSIONS.CUSTOMER_VIEW);
   const params = await searchParams;
 
+  const activeBranchId = await getActiveBranchFilter(user, params.branchId);
   const isSuper = user.role === Role.SUPER_ADMIN;
 
   const [customers, branches] = await Promise.all([
-    listCustomers(user, { search: params.search, branchId: params.branchId }),
+    listCustomers(user, { search: params.search, branchId: activeBranchId }),
     isSuper ? listSelectableBranches(user) : Promise.resolve([]),
   ]);
 

@@ -25,7 +25,7 @@ export interface CustomerOutstandingSummary {
   readonly totalBilled: number;
   readonly totalPaid: number;
   readonly outstandingAmount: number;
-  readonly paymentStatus: "Pending" | "Partially Paid" | "Paid";
+  readonly paymentStatus: "Pending" | "Partially Paid" | "Paid" | "Advance / Credit";
   readonly lastPaymentDate: string | null;
   readonly lastTransactionDate: string | null;
 }
@@ -80,7 +80,6 @@ export async function listCustomerOutstanding(
           AND: [
             NOT_DELETED,
             { status: { in: [...INVOICE_STATUSES] } },
-            filters.from ? { quotationDate: { gte: filters.from } } : {},
             filters.to ? { quotationDate: { lte: filters.to } } : {},
           ],
         },
@@ -90,13 +89,12 @@ export async function listCustomerOutstanding(
         where: {
           AND: [
             NOT_DELETED,
-            { direction: LedgerDirection.CREDIT },
             { status: { in: [...SETTLED] } },
-            filters.from ? { entryDate: { gte: new Date(filters.from) } } : {},
+            { particular: { not: { contains: "Opening" } } },
             filters.to ? { entryDate: { lte: new Date(filters.to) } } : {},
           ],
         },
-        select: { id: true, amount: true, entryDate: true },
+        select: { id: true, amount: true, direction: true, entryDate: true },
       },
     },
     orderBy: { name: "asc" },
@@ -109,13 +107,23 @@ export async function listCustomerOutstanding(
   const items: CustomerOutstandingSummary[] = customers.map((c) => {
     const openingBalance = Number(c.garudaBalance || c.currentDues || 0);
     const quotationTotal = c.quotations.reduce((sum, q) => sum + Number(q.grandTotal), 0);
-    const totalBilled = openingBalance + quotationTotal;
 
-    const totalPaid = c.ledgerEntries.reduce((sum, e) => sum + Number(e.amount), 0);
-    const outstandingAmount = Math.max(0, totalBilled - totalPaid);
+    const debits = c.ledgerEntries
+      .filter((e) => e.direction === LedgerDirection.DEBIT)
+      .reduce((sum, e) => sum + Number(e.amount), 0);
 
-    let paymentStatus: "Pending" | "Partially Paid" | "Paid" = "Pending";
-    if (totalPaid >= totalBilled && totalBilled > 0) {
+    const credits = c.ledgerEntries
+      .filter((e) => e.direction === LedgerDirection.CREDIT)
+      .reduce((sum, e) => sum + Number(e.amount), 0);
+
+    const totalBilled = openingBalance + quotationTotal + debits;
+    const totalPaid = credits;
+    const outstandingAmount = totalBilled - totalPaid;
+
+    let paymentStatus: "Pending" | "Partially Paid" | "Paid" | "Advance / Credit" = "Pending";
+    if (outstandingAmount < 0) {
+      paymentStatus = "Advance / Credit";
+    } else if (totalPaid >= totalBilled && totalBilled > 0) {
       paymentStatus = "Paid";
     } else if (totalPaid > 0) {
       paymentStatus = "Partially Paid";

@@ -20,7 +20,7 @@ export interface VendorOutstandingSummary {
   readonly totalPayable: number;
   readonly totalPaid: number;
   readonly outstandingAmount: number;
-  readonly paymentStatus: "Pending" | "Partially Paid" | "Paid";
+  readonly paymentStatus: "Pending" | "Partially Paid" | "Paid" | "Advance / Credit";
   readonly lastPaymentDate: string | null;
   readonly lastTransactionDate: string | null;
 }
@@ -74,13 +74,12 @@ export async function listVendorOutstanding(
         where: {
           AND: [
             NOT_DELETED,
-            { direction: LedgerDirection.DEBIT },
             { status: { in: [...SETTLED] } },
-            filters.from ? { entryDate: { gte: new Date(filters.from) } } : {},
+            { particular: { not: { contains: "Opening" } } },
             filters.to ? { entryDate: { lte: new Date(filters.to) } } : {},
           ],
         },
-        select: { id: true, amount: true, entryDate: true },
+        select: { id: true, amount: true, direction: true, entryDate: true },
       },
     },
     orderBy: { name: "asc" },
@@ -94,7 +93,6 @@ export async function listVendorOutstanding(
         NOT_DELETED,
         branchCond,
         { vendorName: { in: vendorNames } },
-        filters.from ? { billDate: { gte: new Date(filters.from) } } : {},
         filters.to ? { billDate: { lte: new Date(filters.to) } } : {},
       ],
     },
@@ -119,13 +117,23 @@ export async function listVendorOutstanding(
     const openingBalance = Number(v.balance || 0);
     const key = `${v.branchId}__${v.name.toLowerCase()}`;
     const billData = billsMap.get(key) ?? { totalAmount: 0, dates: [] };
-    const totalPayable = openingBalance + billData.totalAmount;
 
-    const totalPaid = v.ledgerEntries.reduce((sum, e) => sum + Number(e.amount), 0);
-    const outstandingAmount = Math.max(0, totalPayable - totalPaid);
+    const debits = v.ledgerEntries
+      .filter((e) => e.direction === LedgerDirection.DEBIT)
+      .reduce((sum, e) => sum + Number(e.amount), 0);
 
-    let paymentStatus: "Pending" | "Partially Paid" | "Paid" = "Pending";
-    if (totalPaid >= totalPayable && totalPayable > 0) {
+    const credits = v.ledgerEntries
+      .filter((e) => e.direction === LedgerDirection.CREDIT)
+      .reduce((sum, e) => sum + Number(e.amount), 0);
+
+    const totalPayable = openingBalance + billData.totalAmount + credits;
+    const totalPaid = debits;
+    const outstandingAmount = totalPayable - totalPaid;
+
+    let paymentStatus: "Pending" | "Partially Paid" | "Paid" | "Advance / Credit" = "Pending";
+    if (outstandingAmount < 0) {
+      paymentStatus = "Advance / Credit";
+    } else if (totalPaid >= totalPayable && totalPayable > 0) {
       paymentStatus = "Paid";
     } else if (totalPaid > 0) {
       paymentStatus = "Partially Paid";

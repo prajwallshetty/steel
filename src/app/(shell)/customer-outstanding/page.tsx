@@ -57,7 +57,7 @@ export default async function CustomerOutstandingPage({ searchParams }: PageProp
       />
 
       {/* Summary KPI Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Card className="border-l-4 border-l-primary/70 shadow-xs">
           <CardContent className="p-4 flex items-center justify-between gap-2">
             <div>
@@ -65,30 +65,6 @@ export default async function CustomerOutstandingPage({ searchParams }: PageProp
               <p className="text-2xl font-extrabold text-foreground mt-0.5">{data.totalCustomers}</p>
             </div>
             <Users className="size-5 text-primary/60 shrink-0" />
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-blue-500 bg-gradient-to-br from-card to-blue-500/5 shadow-xs">
-          <CardContent className="p-4 flex items-center justify-between gap-2">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total Billed / Invoiced</p>
-              <p className="text-2xl font-extrabold text-blue-600 dark:text-blue-400 mt-0.5 tabular-nums">
-                ₹{formatMoney(data.totalBilledSum, grouping)}
-              </p>
-            </div>
-            <Receipt className="size-5 text-blue-500/60 shrink-0" />
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-emerald-500 bg-gradient-to-br from-card to-emerald-500/5 shadow-xs">
-          <CardContent className="p-4 flex items-center justify-between gap-2">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total Collected / Paid</p>
-              <p className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5 tabular-nums">
-                ₹{formatMoney(data.totalPaidSum, grouping)}
-              </p>
-            </div>
-            <Wallet className="size-5 text-emerald-500/60 shrink-0" />
           </CardContent>
         </Card>
 
@@ -169,8 +145,6 @@ export default async function CustomerOutstandingPage({ searchParams }: PageProp
                   {isSuper && (
                     <th scope="col" className="px-4 py-3 text-left font-semibold">Branch</th>
                   )}
-                  <th scope="col" className="px-4 py-3 text-right font-semibold">Total Billed</th>
-                  <th scope="col" className="px-4 py-3 text-right font-semibold">Total Paid</th>
                   <th scope="col" className="px-4 py-3 text-right font-semibold">Outstanding</th>
                   <th scope="col" className="px-4 py-3 text-center font-semibold">Payment Status</th>
                   <th scope="col" className="px-4 py-3 text-left font-semibold">Last Payment</th>
@@ -205,20 +179,16 @@ export default async function CustomerOutstandingPage({ searchParams }: PageProp
                         {item.branchName}
                       </td>
                     )}
-                    <td className="px-4 py-3 text-right font-semibold tabular-nums text-foreground">
-                      ₹{formatMoney(item.totalBilled, grouping)}
-                    </td>
-                    <td className="px-4 py-3 text-right font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
-                      ₹{formatMoney(item.totalPaid, grouping)}
-                    </td>
-                    <td className={`px-4 py-3 text-right font-bold tabular-nums ${item.outstandingAmount > 0 ? "text-rose-600 dark:text-rose-400" : "text-foreground"}`}>
-                      ₹{formatMoney(item.outstandingAmount, grouping)}
+                    <td className={`px-4 py-3 text-right font-bold tabular-nums ${item.outstandingAmount > 0 ? "text-rose-600 dark:text-rose-400" : item.outstandingAmount < 0 ? "text-emerald-600 dark:text-emerald-400" : "text-foreground"}`}>
+                      {item.outstandingAmount < 0 ? `-₹${formatMoney(Math.abs(item.outstandingAmount), grouping)}` : `₹${formatMoney(item.outstandingAmount, grouping)}`}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span
                         className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border ${
                           item.paymentStatus === "Paid"
                             ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+                            : item.paymentStatus === "Advance / Credit"
+                            ? "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30"
                             : item.paymentStatus === "Partially Paid"
                             ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
                             : "bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30"

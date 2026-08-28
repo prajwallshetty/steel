@@ -10,6 +10,10 @@ import {
   type ScopeSubject,
 } from "@/modules/permissions/scope";
 
+import { listCustomerOutstanding } from "@/modules/customer-outstanding/customer-outstanding-service";
+import { listVendorOutstanding } from "@/modules/vendor-outstanding/vendor-outstanding-service";
+import { getStaffCashInHand } from "@/modules/staff/staff-service";
+
 const SETTLED: LedgerStatus[] = [LedgerStatus.RECEIVED, LedgerStatus.CLEARED];
 const REVENUE_STATUSES: QuotationStatus[] = [
   QuotationStatus.APPROVED,
@@ -54,6 +58,7 @@ export interface DashboardMetrics {
   readonly receiptsToday: number;
   readonly cashBalance: number;
   readonly bankBalance: number;
+  readonly staffCashInHand: number;
   readonly outstandingReceivables: number;
   readonly outstandingPayables: number;
   readonly monthlyCashFlow: readonly { month: string; incoming: number; outgoing: number }[];
@@ -162,12 +167,6 @@ export const getDashboardMetrics = cache(
     cashDebitsRes,
     bankCreditsRes,
     bankDebitsRes,
-    totalInvoicedRes,
-    totalReceivedOnInvoicesRes,
-    totalBillsRes,
-    totalPaidOnBillsRes,
-    customerDuesRes,
-    vendorBalanceRes,
     cashFlowEntries,
     todayTransactionsEntries,
   ] = await Promise.all([
@@ -423,87 +422,7 @@ export const getDashboardMetrics = cache(
       },
     }),
 
-    // Total Invoiced for outstanding receivables
-    prisma.quotation.aggregate({
-      _sum: { grandTotal: true },
-      where: {
-        AND: [
-          quotationBase,
-          { status: { in: REVENUE_STATUSES } },
-          { quotationDate: { lte: balanceEndDay } },
-        ],
-      },
-    }),
 
-    // Total Received against invoices
-    prisma.cashLedgerEntry.aggregate({
-      _sum: { amount: true },
-      where: {
-        AND: [
-          ledgerBase,
-          { status: { in: SETTLED } },
-          { direction: LedgerDirection.CREDIT },
-          { quotationId: { not: null } },
-          { entryDate: { lte: balanceEndDate } },
-        ],
-      },
-    }),
-
-    // Total Vendor Bills for outstanding payables
-    prisma.vendorBill.aggregate({
-      _sum: { amount: true },
-      where: {
-        AND: [
-          filterBranchId
-            ? { branchId: filterBranchId }
-            : isSuper
-            ? {}
-            : { branchId: subject.branchId ?? "__none__" },
-          NOT_DELETED,
-          { billDate: { lte: balanceEndDate } },
-        ],
-      },
-    }),
-
-    // Total Paid against vendor bills
-    prisma.cashLedgerEntry.aggregate({
-      _sum: { amount: true },
-      where: {
-        AND: [
-          ledgerBase,
-          { status: { in: SETTLED } },
-          { direction: LedgerDirection.DEBIT },
-          { vendorBillId: { not: null } },
-          { entryDate: { lte: balanceEndDate } },
-        ],
-      },
-    }),
-
-    // Customer Dues
-    prisma.customer.aggregate({
-      _sum: { currentDues: true },
-      where: {
-        ...NOT_DELETED,
-        ...(filterBranchId
-          ? { branchId: filterBranchId }
-          : isSuper
-          ? {}
-          : { branchId: subject.branchId ?? "__none__" }),
-      },
-    }),
-
-    // Vendor Balances / Liabilities
-    prisma.vendor.aggregate({
-      _sum: { balance: true },
-      where: {
-        ...NOT_DELETED,
-        ...(filterBranchId
-          ? { branchId: filterBranchId }
-          : isSuper
-          ? {}
-          : { branchId: subject.branchId ?? "__none__" }),
-      },
-    }),
 
     // Cash flow entries for the period
     prisma.cashLedgerEntry.findMany({
@@ -630,75 +549,20 @@ export const getDashboardMetrics = cache(
     orderBy: { name: "asc" },
   });
 
-  const [negativeCustomers, negativeVendors, negativeStaff] = await Promise.all([
-    prisma.customer.aggregate({
-      _sum: { garudaBalance: true },
-      where: {
-        AND: [
-          NOT_DELETED,
-          filterBranchId
-            ? { branchId: filterBranchId }
-            : isSuper
-            ? {}
-            : { branchId: subject.branchId ?? "__none__" },
-          { garudaBalance: { lt: 0 } },
-        ],
-      },
-    }),
-    prisma.vendor.aggregate({
-      _sum: { balance: true },
-      where: {
-        AND: [
-          NOT_DELETED,
-          filterBranchId
-            ? { branchId: filterBranchId }
-            : isSuper
-            ? {}
-            : { branchId: subject.branchId ?? "__none__" },
-          { balance: { lt: 0 } },
-        ],
-      },
-    }),
-    prisma.staff.aggregate({
-      _sum: { balance: true },
-      where: {
-        AND: [
-          NOT_DELETED,
-          filterBranchId
-            ? { branchId: filterBranchId }
-            : isSuper
-            ? {}
-            : { branchId: subject.branchId ?? "__none__" },
-          { balance: { lt: 0 } },
-        ],
-      },
-    }),
-  ]);
 
-  const totalNegativeCustomerBalances = Math.abs(Number(negativeCustomers._sum?.garudaBalance ?? 0));
-  const totalNegativeVendorBalances = Math.abs(Number(negativeVendors._sum?.balance ?? 0));
-  const totalNegativeStaffBalances = Math.abs(Number(negativeStaff._sum?.balance ?? 0));
 
   const totalStartingBalance = activeDivisions.reduce((sum, d) => sum + Number(d.startingBalance ?? 0), 0);
   const cashBalance = totalStartingBalance + Number(cashCreditsRes._sum?.amount ?? 0) - Number(cashDebitsRes._sum?.amount ?? 0);
   const bankBalance = Number(bankCreditsRes._sum?.amount ?? 0) - Number(bankDebitsRes._sum?.amount ?? 0);
 
-  const outstandingReceivables =
-    Number(customerDuesRes._sum?.currentDues ?? 0) +
-    totalNegativeCustomerBalances +
-    totalNegativeVendorBalances +
-    totalNegativeStaffBalances +
-    Math.max(
-      0,
-      Number(totalInvoicedRes._sum?.grandTotal ?? 0) - Number(totalReceivedOnInvoicesRes._sum?.amount ?? 0)
-    );
+  const [customerOutstandingPage, vendorOutstandingPage, staffCashInHand] = await Promise.all([
+    listCustomerOutstanding(subject, { branchId: filterBranchId, to: balanceEndDay }),
+    listVendorOutstanding(subject, { branchId: filterBranchId, to: balanceEndDay }),
+    getStaffCashInHand(subject, filterBranchId),
+  ]);
 
-  const outstandingPayables =
-    Number(vendorBalanceRes._sum?.balance ?? 0) +
-    Math.max(
-      0,
-      Number(totalBillsRes._sum?.amount ?? 0) - Number(totalPaidOnBillsRes._sum?.amount ?? 0)
-    );
+  const outstandingReceivables = customerOutstandingPage.totalOutstandingSum;
+  const outstandingPayables = vendorOutstandingPage.totalOutstandingSum;
 
   const divisionIds = activeDivisions.map((d) => d.id);
 
@@ -860,6 +724,7 @@ export const getDashboardMetrics = cache(
     receiptsToday: Number(receiptsTodayRes._sum?.amount ?? 0),
     cashBalance,
     bankBalance,
+    staffCashInHand,
     outstandingReceivables,
     outstandingPayables,
     monthlyCashFlow: [...flowMonthly.entries()].map(([month, flow]) => ({

@@ -4,7 +4,7 @@ import { useTransition } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Building2, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { setActiveBranchCookie } from "@/modules/branches/branch-context";
+import { setActiveBranchCookie } from "@/modules/branches/branch-actions";
 
 export interface BranchOption {
   readonly id: string;

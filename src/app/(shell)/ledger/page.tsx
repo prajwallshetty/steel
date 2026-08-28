@@ -170,10 +170,10 @@ export default async function CustomerLedgerPage({ searchParams }: PageProps) {
             <Card className="bg-card border-2 border-primary/20 bg-primary/5">
               <CardContent className="p-4">
                 <p className="text-xs uppercase tracking-wide text-primary font-semibold">
-                  Closing Balance
+                  {partyType === "customer" || selectedCustomerId ? "Outstanding Dues" : "Closing Balance"}
                 </p>
-                <p className="text-2xl font-black tabular-nums text-foreground mt-1">
-                  {money(ledger.closingBalance)}
+                <p className={`text-2xl font-black tabular-nums mt-1 ${ledger.closingBalance > 0 ? "text-rose-600 dark:text-rose-400" : ledger.closingBalance < 0 ? "text-emerald-600 dark:text-emerald-400" : "text-foreground"}`}>
+                  {ledger.closingBalance < 0 ? `-₹${money(Math.abs(ledger.closingBalance))}` : `₹${money(ledger.closingBalance)}`}
                 </p>
               </CardContent>
             </Card>

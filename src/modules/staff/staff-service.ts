@@ -69,6 +69,24 @@ export async function listStaff(
   }));
 }
 
+export async function getStaffCashInHand(
+  subject: ScopeSubject,
+  branchId?: string,
+): Promise<number> {
+  const staffMembers = await prisma.staff.findMany({
+    where: {
+      AND: [
+        branchWhere(subject),
+        NOT_DELETED,
+        branchId ? { branchId } : {},
+      ],
+    },
+    select: { balance: true },
+  });
+
+  return staffMembers.reduce((sum, s) => sum + Number(s.balance), 0);
+}
+
 export async function listSelectableStaff(
   subject: ScopeSubject,
   branchId?: string,

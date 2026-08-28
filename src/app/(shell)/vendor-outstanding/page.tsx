@@ -211,14 +211,16 @@ export default async function VendorOutstandingPage({ searchParams }: PageProps)
                     <td className="px-4 py-3 text-right font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
                       ₹{formatMoney(item.totalPaid, grouping)}
                     </td>
-                    <td className={`px-4 py-3 text-right font-bold tabular-nums ${item.outstandingAmount > 0 ? "text-amber-600 dark:text-amber-400" : "text-foreground"}`}>
-                      ₹{formatMoney(item.outstandingAmount, grouping)}
+                    <td className={`px-4 py-3 text-right font-bold tabular-nums ${item.outstandingAmount > 0 ? "text-amber-600 dark:text-amber-400" : item.outstandingAmount < 0 ? "text-emerald-600 dark:text-emerald-400" : "text-foreground"}`}>
+                      {item.outstandingAmount < 0 ? `-₹${formatMoney(Math.abs(item.outstandingAmount), grouping)}` : `₹${formatMoney(item.outstandingAmount, grouping)}`}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span
                         className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border ${
                           item.paymentStatus === "Paid"
                             ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+                            : item.paymentStatus === "Advance / Credit"
+                            ? "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30"
                             : item.paymentStatus === "Partially Paid"
                             ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
                             : "bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30"

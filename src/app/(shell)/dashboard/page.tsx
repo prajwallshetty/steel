@@ -21,6 +21,7 @@ import { ROLE_LABELS } from "@/modules/permissions/permissions";
 import { formatListDate, formatMoney } from "@/lib/format/number";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/StatusBadge";
+import { cn } from "@/lib/utils";
 import { PageHeading } from "@/components/layout/PageHeading";
 import { ExportButton } from "@/components/reports/ExportButton";
 import { FilterBar } from "@/components/shared/FilterBar";
@@ -58,14 +59,30 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
   const isFiltered = Boolean(filters.from || filters.to);
 
+  const buildLink = (basePath: string, extraParams?: Record<string, string | undefined>) => {
+    const q = new URLSearchParams();
+    if (filters.from) q.set("from", filters.from);
+    if (filters.to) q.set("to", filters.to);
+    if (filters.branchId) q.set("branchId", filters.branchId);
+    if (extraParams) {
+      Object.entries(extraParams).forEach(([k, v]) => {
+        if (v) q.set(k, v);
+      });
+    }
+    const str = q.toString();
+    return str ? `${basePath}?${str}` : basePath;
+  };
+
   // Row 1: Core Financial Balances
   const balanceCards = [
     {
       label: "Cash in Hand",
-      value: money(metrics.cashBalance),
-      hint: "Total settled cash balance",
-      icon: Wallet,
-      tone: metrics.cashBalance >= 0 ? "text-emerald-600 bg-emerald-500/10" : "text-red-600 bg-red-500/10",
+      value: money(metrics.staffCashInHand),
+      hint: "Net staff balances under /staff",
+      icon: Users,
+      tone: metrics.staffCashInHand >= 0 ? "text-blue-600 bg-blue-500/10" : "text-amber-600 bg-amber-500/10",
+      href: buildLink("/staff"),
+      highlight: true,
     },
     {
       label: "Customer Receivables",
@@ -73,6 +90,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       hint: "Customer dues & balances",
       icon: ArrowDownLeft,
       tone: "text-amber-600 bg-amber-500/10",
+      href: buildLink("/customer-outstanding"),
     },
     {
       label: "Vendor Liabilities",
@@ -80,6 +98,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       hint: "Vendor payables & liabilities",
       icon: ArrowUpRight,
       tone: "text-rose-600 bg-rose-500/10",
+      href: buildLink("/vendor-outstanding"),
     },
     {
       label: isFiltered ? "Total Incoming" : "Today's Incoming",
@@ -87,6 +106,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       hint: isFiltered ? "Incoming funds in period" : "Incoming funds today",
       icon: ArrowUpRight,
       tone: "text-emerald-600 bg-emerald-500/10",
+      href: buildLink("/customer-payments"),
     },
     {
       label: isFiltered ? "Total Outgoing" : "Today's Outgoing",
@@ -94,6 +114,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       hint: isFiltered ? "Outgoing payments in period" : "Outgoing payments today",
       icon: ArrowDownLeft,
       tone: "text-red-600 bg-red-500/10",
+      href: buildLink("/vendor-payments"),
     },
   ];
 
@@ -105,6 +126,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       hint: "Approved sales quotations",
       icon: IndianRupee,
       tone: "text-blue-600 bg-blue-500/10",
+      href: buildLink("/quotations", { status: "APPROVED" }),
     },
     {
       label: isFiltered ? "Quotations in Period" : "Today's Quotations",
@@ -112,6 +134,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       hint: `${metrics.totalQuotations} total quotations`,
       icon: FileText,
       tone: "text-neutral-700 bg-neutral-500/10",
+      href: buildLink("/quotations"),
     },
     {
       label: "Total Customers",
@@ -119,6 +142,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       hint: "Active customer accounts",
       icon: Users,
       tone: "text-indigo-600 bg-indigo-500/10",
+      href: buildLink("/customers"),
     },
     {
       label: "Total Vendors",
@@ -126,6 +150,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       hint: "Active supplier accounts",
       icon: Building2,
       tone: "text-purple-600 bg-purple-500/10",
+      href: buildLink("/vendors"),
     },
     {
       label: "Pending Approvals",
@@ -133,6 +158,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       hint: metrics.pendingQuotations > 0 ? "Requires review" : "All cleared",
       icon: FileClock,
       tone: metrics.pendingQuotations > 0 ? "text-red-600 bg-red-500/10" : "text-neutral-500 bg-neutral-500/5",
+      href: buildLink("/quotations", { status: "PENDING_APPROVAL" }),
     },
   ];
 
@@ -197,40 +223,34 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             {metrics.divisionFinancials.map((div) => (
-              <Card key={div.id} className="border-t-4 border-t-primary shadow-xs">
-                <CardHeader className="pb-3 border-b bg-muted/20">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base font-bold text-foreground">
-                      {div.name}
-                    </CardTitle>
-                    <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-primary/10 text-primary uppercase">
-                      {div.code}
-                    </span>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-4 space-y-3">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground font-medium">Opening Balance</span>
-                    <span className="font-bold tabular-nums text-foreground">{money(div.openingBalance)}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground font-medium">Total Revenue</span>
-                    <span className="font-bold tabular-nums text-emerald-600 dark:text-emerald-400">+{money(div.totalRevenue)}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground font-medium">Total Expenses</span>
-                    <span className="font-bold tabular-nums text-red-600 dark:text-red-400">-{money(div.totalExpenses)}</span>
-                  </div>
-                  <div className="pt-2 border-t flex items-center justify-between text-sm">
-                    <span className="font-bold text-foreground">Closing Balance</span>
-                    <span className="font-extrabold tabular-nums text-emerald-700 dark:text-emerald-300">{money(div.closingBalance)}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs pt-1">
-                    <span className="font-semibold text-blue-600 dark:text-blue-400">Cash in Hand</span>
-                    <span className="font-bold tabular-nums text-blue-600 dark:text-blue-400">{money(div.cashInHand)}</span>
-                  </div>
-                </CardContent>
-              </Card>
+              <Link key={div.id} href={buildLink("/dashboard", { branchId: div.id })} className="block transition-all hover:-translate-y-0.5">
+                <Card className="border-t-4 border-t-primary shadow-xs hover:border-primary/60 hover:shadow-md transition-all">
+                  <CardHeader className="pb-3 border-b bg-muted/20">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base font-bold text-foreground">
+                        {div.name}
+                      </CardTitle>
+                      <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-primary/10 text-primary uppercase">
+                        {div.code}
+                      </span>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-4 space-y-3">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground font-medium">Opening Balance</span>
+                      <span className="font-bold tabular-nums text-foreground">{money(div.openingBalance)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground font-medium">Total Revenue</span>
+                      <span className="font-bold tabular-nums text-emerald-600 dark:text-emerald-400">+{money(div.totalRevenue)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground font-medium">Total Expenses</span>
+                      <span className="font-bold tabular-nums text-red-600 dark:text-red-400">-{money(div.totalExpenses)}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
             ))}
 
             {/* Overall Combined Summary Card */}
@@ -254,14 +274,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                   <span className="text-muted-foreground font-medium">Total Expenses</span>
                   <span className="font-bold tabular-nums text-red-600 dark:text-red-400">-{money(metrics.overallFinancials.totalExpenses)}</span>
                 </div>
-                <div className="pt-2 border-t flex items-center justify-between text-sm">
-                  <span className="font-bold text-foreground">Total Closing Balance</span>
-                  <span className="font-extrabold tabular-nums text-emerald-700 dark:text-emerald-300">{money(metrics.overallFinancials.totalClosingBalance)}</span>
-                </div>
-                <div className="flex items-center justify-between text-xs pt-1">
-                  <span className="font-semibold text-blue-600 dark:text-blue-400">Total Cash in Hand</span>
-                  <span className="font-bold tabular-nums text-blue-600 dark:text-blue-400">{money(metrics.overallFinancials.totalCashInHand)}</span>
-                </div>
               </CardContent>
             </Card>
           </div>
@@ -274,26 +286,58 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           Financial Position
         </h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          {balanceCards.map((card) => (
-            <Card key={card.label} className="group/metric transition-all duration-300 hover:border-primary/20">
-              <CardContent className="flex items-center justify-between gap-4 py-5">
-                <div className="min-w-0 space-y-1">
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                    {card.label}
-                  </p>
-                  <p className="truncate text-xl font-extrabold tracking-tight text-neutral-900 tabular-nums">
-                    {card.value}
-                  </p>
-                  <p className="text-xs text-muted-foreground font-medium truncate">
-                    {card.hint}
-                  </p>
-                </div>
-                <div className={`flex size-11 shrink-0 items-center justify-center rounded-xl transition-all duration-300 ${card.tone}`}>
-                  <card.icon className="size-5" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          {balanceCards.map((card) => {
+            const isHighlight = !!card.highlight;
+            return (
+              <Link
+                key={card.label}
+                href={card.href}
+                className="block group/metric transition-all duration-300 hover:-translate-y-0.5 focus:outline-none"
+              >
+                <Card className={cn(
+                  "h-full border transition-all duration-300 group-hover/metric:shadow-md",
+                  isHighlight 
+                    ? "bg-gradient-to-br from-emerald-600 to-teal-700 text-white border-emerald-600/50 hover:border-emerald-600 shadow-sm"
+                    : "group-hover/metric:border-primary/40"
+                )}>
+                  <CardContent className="flex items-center justify-between gap-3 py-5 px-4">
+                    <div className="min-w-0 space-y-1">
+                      <p className={cn(
+                        "text-[11px] font-bold uppercase tracking-wider transition-colors",
+                        isHighlight 
+                          ? "text-emerald-100 group-hover/metric:text-white"
+                          : "text-muted-foreground group-hover/metric:text-primary"
+                      )}>
+                        {card.label}
+                      </p>
+                      <p className={cn(
+                        "truncate font-extrabold tracking-tight tabular-nums",
+                        isHighlight
+                          ? "text-white text-xl sm:text-2xl"
+                          : "text-neutral-900 text-lg"
+                      )}>
+                        {card.value}
+                      </p>
+                      <p className={cn(
+                        "text-[11px] font-medium truncate",
+                        isHighlight ? "text-emerald-100/90" : "text-muted-foreground"
+                      )}>
+                        {card.hint}
+                      </p>
+                    </div>
+                    <div className={cn(
+                      "flex size-10 shrink-0 items-center justify-center rounded-xl transition-all duration-300",
+                      isHighlight
+                        ? "bg-white/20 text-white shadow-xs"
+                        : card.tone
+                    )}>
+                      <card.icon className="size-5" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          })}
         </div>
       </div>
 
@@ -304,24 +348,30 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         </h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {todayCards.map((card) => (
-            <Card key={card.label} className="group/metric transition-all duration-300 hover:border-primary/20">
-              <CardContent className="flex items-center justify-between gap-4 py-5">
-                <div className="min-w-0 space-y-1">
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                    {card.label}
-                  </p>
-                  <p className="truncate text-xl font-extrabold tracking-tight text-neutral-950 tabular-nums">
-                    {card.value}
-                  </p>
-                  <p className="text-xs text-muted-foreground font-medium truncate">
-                    {card.hint}
-                  </p>
-                </div>
-                <div className={`flex size-10 shrink-0 items-center justify-center rounded-lg transition-all duration-300 ${card.tone}`}>
-                  <card.icon className="size-5" />
-                </div>
-              </CardContent>
-            </Card>
+            <Link
+              key={card.label}
+              href={card.href}
+              className="block group/metric transition-all duration-300 hover:-translate-y-0.5 focus:outline-none"
+            >
+              <Card className="h-full border transition-all duration-300 group-hover/metric:border-primary/40 group-hover/metric:shadow-md">
+                <CardContent className="flex items-center justify-between gap-3 py-5 px-4">
+                  <div className="min-w-0 space-y-1">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground group-hover/metric:text-primary transition-colors">
+                      {card.label}
+                    </p>
+                    <p className="truncate text-xl font-extrabold tracking-tight text-neutral-950 tabular-nums">
+                      {card.value}
+                    </p>
+                    <p className="text-xs text-muted-foreground font-medium truncate">
+                      {card.hint}
+                    </p>
+                  </div>
+                  <div className={`flex size-10 shrink-0 items-center justify-center rounded-lg transition-all duration-300 ${card.tone}`}>
+                    <card.icon className="size-5" />
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
         </div>
       </div>

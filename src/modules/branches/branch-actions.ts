@@ -46,3 +46,17 @@ export async function archiveBranchAction(
     return actionOk({ id });
   });
 }
+
+import { cookies } from "next/headers";
+const ACTIVE_BRANCH_COOKIE = "steel_active_branch";
+
+/** Set active branch cookie for Super Admin switcher. */
+export async function setActiveBranchCookie(branchId: string): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.set(ACTIVE_BRANCH_COOKIE, branchId, {
+    httpOnly: false, // Accessible to clientJS for quick UI updates
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 30, // 30 days
+  });
+}

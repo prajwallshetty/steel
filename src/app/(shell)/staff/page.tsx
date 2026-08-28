@@ -61,6 +61,22 @@ export default async function StaffPage({ searchParams }: PageProps) {
         }
       />
 
+      {/* Cash in Hand Summary KPI Card */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Card className="border-l-4 border-l-emerald-500 bg-gradient-to-br from-card to-emerald-500/5 shadow-xs">
+          <CardContent className="p-4 flex items-center justify-between gap-2">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Cash in Hand / Net Balance</p>
+              <p className={`text-2xl font-extrabold mt-0.5 tabular-nums ${totalBalance >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                {totalBalance < 0 ? `-₹${Math.abs(totalBalance).toLocaleString("en-IN")}` : `₹${totalBalance.toLocaleString("en-IN")}`}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">Sum of all active staff balances</p>
+            </div>
+            <Users className="size-6 text-emerald-500/60 shrink-0" />
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
         <CardContent className="py-4">
           <FilterBar
@@ -123,9 +139,16 @@ export default async function StaffPage({ searchParams }: PageProps) {
                 {staffMembers.map((staff) => (
                   <tr
                     key={staff.id}
-                    className="border-b transition-colors last:border-b-0 hover:bg-muted/40"
+                    className="border-b transition-colors hover:bg-muted/40"
                   >
-                    <td className="px-4 py-3 font-semibold text-foreground">{staff.name}</td>
+                    <td className="px-4 py-3 font-semibold text-foreground">
+                      <a
+                        href={`/ledger?search=${encodeURIComponent(staff.name)}`}
+                        className="hover:text-primary hover:underline"
+                      >
+                        {staff.name}
+                      </a>
+                    </td>
                     <td className="px-4 py-3 text-muted-foreground">{staff.designation ?? "Staff"}</td>
                     <td className={`px-4 py-3 text-right font-bold tabular-nums ${staff.balance < 0 ? "text-red-600" : "text-emerald-700"}`}>
                       {staff.balance < 0 ? `-₹${Math.abs(staff.balance).toLocaleString("en-IN")}` : `₹${staff.balance.toLocaleString("en-IN")}`}
@@ -171,6 +194,17 @@ export default async function StaffPage({ searchParams }: PageProps) {
                   </tr>
                 ))}
               </tbody>
+              <tfoot>
+                <tr className="bg-muted/60 font-bold border-t text-foreground">
+                  <td colSpan={2} className="px-4 py-3 text-left">
+                    Total Cash in Hand
+                  </td>
+                  <td className={`px-4 py-3 text-right text-base tabular-nums ${totalBalance < 0 ? "text-red-600" : "text-emerald-700"}`}>
+                    {totalBalance < 0 ? `-₹${Math.abs(totalBalance).toLocaleString("en-IN")}` : `₹${totalBalance.toLocaleString("en-IN")}`}
+                  </td>
+                  <td colSpan={isSuper ? 3 : 2} className="px-4 py-3"></td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         </Card>

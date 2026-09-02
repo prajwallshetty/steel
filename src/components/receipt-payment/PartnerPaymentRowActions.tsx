@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { LedgerDirection, LedgerStatus } from "@prisma/client";
 import { Loader2, Printer, Trash2 } from "lucide-react";
@@ -16,11 +16,14 @@ export function PartnerPaymentRowActions({
   reference,
   direction,
   canDelete,
+  editTrigger,
 }: {
   readonly id: string;
   readonly reference: string;
   readonly direction: LedgerDirection;
   readonly canDelete: boolean;
+  /** Rendered before Delete when the caller has an edit action for this row. */
+  readonly editTrigger?: ReactNode;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -55,6 +58,8 @@ export function PartnerPaymentRowActions({
       >
         <Printer className="size-4 text-muted-foreground hover:text-foreground" />
       </Button>
+
+      {editTrigger}
 
       {canDelete && (
         <Button

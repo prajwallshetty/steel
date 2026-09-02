@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { FilterBar } from "@/components/shared/FilterBar";
 import { PageHeading } from "@/components/layout/PageHeading";
+import { QuotationDeleteButton } from "@/components/quotation/QuotationDeleteButton";
 import { EDITABLE_STATUSES } from "@/types/quotation";
 
 import { getActiveBranchFilter } from "@/modules/branches/branch-context";
@@ -51,6 +52,7 @@ export default async function QuotationsPage({ searchParams }: PageProps) {
   ]);
 
   const canUpdate = hasPermission(user, PERMISSIONS.QUOTATION_UPDATE_OWN);
+  const canDelete = hasPermission(user, PERMISSIONS.QUOTATION_DELETE);
   const grouping = settings.display.numberGrouping;
 
   return (
@@ -228,6 +230,14 @@ export default async function QuotationsPage({ searchParams }: PageProps) {
                             Edit
                           </Button>
                         )}
+                        {canDelete &&
+                          quotation.status !== QuotationStatus.APPROVED &&
+                          quotation.status !== QuotationStatus.COMPLETED && (
+                            <QuotationDeleteButton
+                              id={quotation.id}
+                              reference={quotation.reference}
+                            />
+                          )}
                       </div>
                     </td>
                   </tr>

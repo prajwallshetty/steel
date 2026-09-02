@@ -7,7 +7,7 @@ import {
   Role,
 } from "@prisma/client";
 import { prisma, NOT_DELETED } from "@/lib/database/prisma";
-import { recordAudit } from "@/modules/audit/audit-service";
+import { diffFields, recordAudit } from "@/modules/audit/audit-service";
 import { formatReference, nextSequenceValue } from "@/modules/shared/sequence";
 import {
   BusinessRuleError,
@@ -16,6 +16,7 @@ import {
 import { PERMISSIONS, hasPermission } from "@/modules/permissions/permissions";
 import {
   ForbiddenError,
+  canMutateRecord,
   ledgerScope,
   ledgerWhere,
   resolveWriteBranch,
@@ -374,6 +375,128 @@ export async function createPartnerPayment(
   });
 
   return { id: entry.id };
+}
+
+/**
+ * Edit an existing vendor/customer payment in place.
+ *
+ * Updates the `CashLedgerEntry` row by its id — never creates a second entry.
+ * The branch assignment is never touched: a payment stays attributed to the
+ * branch it was recorded in regardless of what the submitted form carries,
+ * so this can't be used to move a voucher between Maharashtra and Mangalore.
+ * All downstream figures (vendor outstanding, ledger, dashboard, totals) are
+ * computed live from this table, so updating the row is sufficient for them
+ * to reflect the edit — no separate recalculation step is needed.
+ */
+export async function updatePartnerPayment(
+  subject: ScopeSubject,
+  id: string,
+  input: PartnerPaymentInput,
+): Promise<{ id: string }> {
+  const existing = await prisma.cashLedgerEntry.findFirst({
+    where: { AND: [{ id }, ledgerWhere(ledgerScope(subject)), NOT_DELETED] },
+  });
+  if (!existing) throw new RecordNotFoundError("Payment");
+
+  const mayEdit = canMutateRecord(ledgerScope(subject), {
+    branchId: existing.branchId,
+    ownerIds: [existing.createdById],
+  });
+  if (!mayEdit) {
+    throw new ForbiddenError("You can only edit payments you are authorized for.");
+  }
+
+  // A cleared entry has been reconciled; changing it would silently rewrite a
+  // balance somebody has already signed off on.
+  if (existing.status === LedgerStatus.CLEARED && !hasPermission(subject, PERMISSIONS.LEDGER_APPROVE)) {
+    throw new BusinessRuleError(
+      "This payment is cleared and reconciled. Ask an administrator to amend it.",
+    );
+  }
+
+  const existingPartnerType: "CUSTOMER" | "VENDOR" =
+    existing.customerId || existing.partyType === "CUSTOMER" ? "CUSTOMER" : "VENDOR";
+  if (input.partnerType !== existingPartnerType) {
+    throw new BusinessRuleError(
+      "A payment's party type (customer/vendor) cannot be changed. Delete it and create a new entry instead.",
+    );
+  }
+
+  // Branch assignment is immutable on edit — always the branch the payment was
+  // originally recorded against, never whatever the client submits.
+  const branchId = existing.branchId;
+
+  // Re-resolve the partner, scoped to the (unchangeable) branch. This both
+  // validates a changed vendor/customer safely — the same way create does —
+  // and keeps `partyName` in sync, since the vendor ledger view matches on
+  // that name rather than the FK.
+  let partnerName = "";
+  if (input.partnerType === "CUSTOMER") {
+    const cust = await prisma.customer.findFirst({
+      where: { id: input.partnerId, branchId, ...NOT_DELETED },
+      select: { name: true },
+    });
+    if (!cust) throw new RecordNotFoundError("Customer");
+    partnerName = cust.name;
+  } else {
+    const vend = await prisma.vendor.findFirst({
+      where: { id: input.partnerId, branchId, ...NOT_DELETED },
+      select: { name: true },
+    });
+    if (!vend) throw new RecordNotFoundError("Vendor");
+    partnerName = vend.name;
+  }
+
+  const data = {
+    entryDate: new Date(input.entryDate),
+    customerId: input.partnerType === "CUSTOMER" ? input.partnerId : null,
+    vendorId: input.partnerType === "VENDOR" ? input.partnerId : null,
+    partyName: partnerName,
+    direction: input.direction,
+    amount: new Prisma.Decimal(input.amount),
+    paymentMethod: input.paymentMethod as any,
+    referenceNo: input.referenceNo?.trim() || null,
+    particular: input.particular.trim(),
+    note: input.note?.trim() || null,
+  };
+
+  // Update the existing row by id — the payment ID is preserved and no new
+  // record is created.
+  await prisma.cashLedgerEntry.update({
+    where: { id },
+    data: { ...data, updatedById: subject.id },
+  });
+
+  const changes = diffFields(
+    {
+      entryDate: existing.entryDate,
+      customerId: existing.customerId,
+      vendorId: existing.vendorId,
+      partyName: existing.partyName,
+      direction: existing.direction,
+      amount: existing.amount,
+      paymentMethod: existing.paymentMethod,
+      referenceNo: existing.referenceNo,
+      particular: existing.particular,
+      note: existing.note,
+    },
+    data,
+  );
+
+  if (changes) {
+    await recordAudit({
+      action: AuditAction.UPDATE,
+      entity: "CashLedgerEntry",
+      entityId: id,
+      summary: `Updated ${input.direction === LedgerDirection.CREDIT ? "receipt" : "payment"} ${existing.reference} for ${partnerName}`,
+      userId: subject.id,
+      branchId,
+      oldValue: changes.before,
+      newValue: changes.after,
+    });
+  }
+
+  return { id };
 }
 
 export async function deletePartnerPayment(

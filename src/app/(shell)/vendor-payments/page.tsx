@@ -4,6 +4,7 @@ import { Wallet } from "lucide-react";
 import { requireAnyPermission } from "@/modules/auth/guard";
 import { PERMISSIONS, hasPermission } from "@/modules/permissions/permissions";
 import { listPartnerPayments } from "@/modules/receipt-payment/partner-payment-service";
+import type { PartnerPaymentInput } from "@/modules/receipt-payment/receipt-payment-schema";
 import { listSelectableVendors } from "@/modules/vendors/vendor-service";
 import { listSelectableBranches } from "@/modules/branches/branch-service";
 import { getSettings } from "@/modules/settings/settings-service";
@@ -35,6 +36,9 @@ export default async function VendorPaymentsPage({ searchParams }: PageProps) {
 
   const activeBranchId = await getActiveBranchFilter(user, params.branchId);
   const isSuper = user.role === Role.SUPER_ADMIN;
+  const canEdit =
+    hasPermission(user, PERMISSIONS.LEDGER_UPDATE_ANY) ||
+    hasPermission(user, PERMISSIONS.LEDGER_UPDATE_OWN);
 
   const [
     page,
@@ -227,6 +231,28 @@ export default async function VendorPaymentsPage({ searchParams }: PageProps) {
                         reference={row.reference}
                         direction={row.direction}
                         canDelete={hasPermission(user, PERMISSIONS.LEDGER_DELETE)}
+                        editTrigger={
+                          canEdit ? (
+                            <VendorPaymentDialog
+                              payment={{
+                                id: row.id,
+                                entryDate: row.entryDate,
+                                direction: row.direction,
+                                partnerId: row.vendorId ?? "",
+                                amount: row.amount,
+                                paymentMethod:
+                                  row.paymentMethod as PartnerPaymentInput["paymentMethod"],
+                                referenceNo: row.referenceNo ?? "",
+                                particular: row.particular,
+                                note: row.note ?? "",
+                              }}
+                              vendors={vendors.map((v) => ({ id: v.id, name: v.name }))}
+                              branches={branches.map((b) => ({ id: b.id, name: b.name }))}
+                              canSelectBranch={isSuper}
+                              defaultBranchId={user.branchId}
+                            />
+                          ) : undefined
+                        }
                       />
                     </td>
                   </tr>

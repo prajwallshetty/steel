@@ -2,7 +2,7 @@
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,31 +17,43 @@ import {
   partnerPaymentSchema,
   type PartnerPaymentInput,
 } from "@/modules/receipt-payment/receipt-payment-schema";
-import { createPartnerPaymentAction } from "@/modules/receipt-payment/partner-payment-actions";
+import {
+  createPartnerPaymentAction,
+  updatePartnerPaymentAction,
+} from "@/modules/receipt-payment/partner-payment-actions";
+
+export interface VendorPaymentEditValues
+  extends Omit<PartnerPaymentInput, "partnerType" | "branchId"> {
+  readonly id: string;
+}
 
 export function VendorPaymentDialog({
+  payment,
   vendors,
   branches,
   canSelectBranch,
   defaultBranchId,
 }: {
+  readonly payment?: VendorPaymentEditValues;
   readonly vendors: readonly { id: string; name: string }[];
   readonly branches: readonly { id: string; name: string }[];
   readonly canSelectBranch: boolean;
   readonly defaultBranchId: string | null;
 }) {
+  const editing = Boolean(payment?.id);
+
   const form = useForm<PartnerPaymentInput>({
     resolver: zodResolver(partnerPaymentSchema),
     defaultValues: {
-      entryDate: new Date().toISOString().slice(0, 10),
-      direction: "DEBIT",
+      entryDate: payment?.entryDate ?? new Date().toISOString().slice(0, 10),
+      direction: payment?.direction ?? "DEBIT",
       partnerType: "VENDOR",
-      partnerId: "",
-      amount: 0,
-      paymentMethod: "CASH",
-      referenceNo: "",
-      particular: "",
-      note: "",
+      partnerId: payment?.partnerId ?? "",
+      amount: payment?.amount ?? 0,
+      paymentMethod: payment?.paymentMethod ?? "CASH",
+      referenceNo: payment?.referenceNo ?? "",
+      particular: payment?.particular ?? "",
+      note: payment?.note ?? "",
       branchId: defaultBranchId ?? "",
     },
   });
@@ -54,16 +66,30 @@ export function VendorPaymentDialog({
   return (
     <EntityDialog
       trigger={
-        <Button>
-          <Plus className="size-4" />
-          Record Vendor Payment
-        </Button>
+        editing ? (
+          <Button variant="ghost" size="icon" aria-label="Edit vendor payment" title="Edit payment">
+            <Pencil className="size-4 text-muted-foreground hover:text-foreground" />
+          </Button>
+        ) : (
+          <Button>
+            <Plus className="size-4" />
+            Record Vendor Payment
+          </Button>
+        )
       }
-      title="Record Vendor Payment"
-      description="Record vendor payments (money out) and vendor refunds (money in)."
+      title={editing ? "Edit Vendor Payment" : "Record Vendor Payment"}
+      description={
+        editing
+          ? "Update this vendor payment. The voucher number and vendor ledger stay linked to this same record."
+          : "Record vendor payments (money out) and vendor refunds (money in)."
+      }
       form={form}
-      onSubmit={createPartnerPaymentAction}
-      successMessage="Payment entry recorded successfully"
+      onSubmit={(values) =>
+        editing
+          ? updatePartnerPaymentAction(payment!.id, values)
+          : createPartnerPaymentAction(values)
+      }
+      successMessage={editing ? "Vendor payment updated" : "Payment entry recorded successfully"}
       wide
     >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -120,7 +146,7 @@ export function VendorPaymentDialog({
           <Input {...register("referenceNo")} placeholder="e.g. UTR-992388" />
         </Field>
 
-        {canSelectBranch && (
+        {canSelectBranch && !editing && (
           <Field label="Branch" error={errors.branchId?.message} required>
             <NativeSelect {...register("branchId")}>
               <option value="">Select branch</option>

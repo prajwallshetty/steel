@@ -12,6 +12,7 @@ import { partnerPaymentSchema } from "./receipt-payment-schema";
 import {
   createPartnerPayment,
   deletePartnerPayment,
+  updatePartnerPayment,
 } from "./partner-payment-service";
 
 function revalidate(): void {
@@ -28,6 +29,22 @@ export async function createPartnerPaymentAction(
   return runAction(async () => {
     const user = await authorizeAction(PERMISSIONS.LEDGER_CREATE);
     const result = await createPartnerPayment(user, partnerPaymentSchema.parse(input));
+    revalidate();
+    return actionOk(result);
+  });
+}
+
+export async function updatePartnerPaymentAction(
+  id: string,
+  input: unknown,
+): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const user = await authorizeAction(PERMISSIONS.LEDGER_UPDATE_OWN);
+    const result = await updatePartnerPayment(
+      user,
+      id,
+      partnerPaymentSchema.parse(input),
+    );
     revalidate();
     return actionOk(result);
   });

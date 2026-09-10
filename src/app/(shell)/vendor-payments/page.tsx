@@ -14,6 +14,8 @@ import { PageHeading } from "@/components/layout/PageHeading";
 import { VendorPaymentDialog } from "@/components/receipt-payment/VendorPaymentDialog";
 import { PartnerPaymentRowActions } from "@/components/receipt-payment/PartnerPaymentRowActions";
 
+import { ExportButton } from "@/components/reports/ExportButton";
+
 import { getActiveBranchFilter } from "@/modules/branches/branch-context";
 
 export const metadata: Metadata = { title: "Vendor Payments" };
@@ -67,20 +69,33 @@ export default async function VendorPaymentsPage({ searchParams }: PageProps) {
     { label: "Current Balance", value: money(page.closingBalance), strong: true },
   ];
 
+  const exportQuery = new URLSearchParams({ kind: "vendor-payments" });
+  if (params.search) exportQuery.set("search", params.search);
+  if (params.from) exportQuery.set("from", params.from);
+  if (params.to) exportQuery.set("to", params.to);
+  if (params.status) exportQuery.set("status", params.status);
+  if (params.paymentMethod) exportQuery.set("paymentMethod", params.paymentMethod);
+  if (params.direction) exportQuery.set("direction", params.direction);
+  if (activeBranchId) exportQuery.set("branchId", activeBranchId);
+
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6">
       <PageHeading
         title="Vendor Payments"
         description={`${page.count} transaction ${page.count === 1 ? "voucher" : "vouchers"}${user.branchName ? ` · ${user.branchName}` : ""}`}
         actions={
-          hasPermission(user, PERMISSIONS.LEDGER_CREATE) ? (
-            <VendorPaymentDialog
-              vendors={vendors.map((v) => ({ id: v.id, name: v.name }))}
-              branches={branches.map((b) => ({ id: b.id, name: b.name }))}
-              canSelectBranch={isSuper}
-              defaultBranchId={user.branchId}
-            />
-          ) : undefined
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportButton href={`/api/reports/export?${exportQuery.toString()}&format=csv`} label="Export CSV" />
+            <ExportButton href={`/api/reports/export?${exportQuery.toString()}&format=pdf`} label="Export PDF" />
+            {hasPermission(user, PERMISSIONS.LEDGER_CREATE) && (
+              <VendorPaymentDialog
+                vendors={vendors.map((v) => ({ id: v.id, name: v.name }))}
+                branches={branches.map((b) => ({ id: b.id, name: b.name }))}
+                canSelectBranch={isSuper}
+                defaultBranchId={user.branchId}
+              />
+            )}
+          </div>
         }
       />
 

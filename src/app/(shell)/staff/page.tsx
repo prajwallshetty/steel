@@ -12,6 +12,8 @@ import { StaffDialog } from "@/components/staff/StaffDialog";
 import { StaffPaymentDialog } from "@/components/staff/StaffPaymentDialog";
 import { StaffRowActions } from "@/components/staff/StaffRowActions";
 
+import { ExportButton } from "@/components/reports/ExportButton";
+
 import { getActiveBranchFilter } from "@/modules/branches/branch-context";
 
 export const metadata: Metadata = { title: "Staff" };
@@ -49,15 +51,23 @@ export default async function StaffPage({ searchParams }: PageProps) {
 
   const totalBalance = staffMembers.reduce((acc, s) => acc + (s.balance || 0), 0);
 
+  const exportQuery = new URLSearchParams({ kind: "staff" });
+  if (params.search) exportQuery.set("search", params.search);
+  if (activeBranchId) exportQuery.set("branchId", activeBranchId);
+
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6">
       <PageHeading
         title="Staff"
         description={`${staffMembers.length} staff member${staffMembers.length === 1 ? "" : "s"} · Net Staff Balance: ${totalBalance < 0 ? `-₹${Math.abs(totalBalance).toLocaleString("en-IN")}` : `₹${totalBalance.toLocaleString("en-IN")}`}`}
         actions={
-          canUpdate || canCreate ? (
-            <StaffPaymentDialog staffList={staffOptions} />
-          ) : undefined
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportButton href={`/api/reports/export?${exportQuery.toString()}&format=csv`} label="Export CSV" />
+            <ExportButton href={`/api/reports/export?${exportQuery.toString()}&format=pdf`} label="Export PDF" />
+            {(canUpdate || canCreate) && (
+              <StaffPaymentDialog staffList={staffOptions} />
+            )}
+          </div>
         }
       />
 

@@ -11,6 +11,8 @@ import { PageHeading } from "@/components/layout/PageHeading";
 import { VendorDialog } from "@/components/vendors/VendorDialog";
 import { VendorRowActions } from "@/components/vendors/VendorRowActions";
 
+import { ExportButton } from "@/components/reports/ExportButton";
+
 import { getActiveBranchFilter } from "@/modules/branches/branch-context";
 
 export const metadata: Metadata = { title: "Vendors" };
@@ -43,19 +45,27 @@ export default async function VendorsPage({ searchParams }: PageProps) {
 
   const totalLiability = vendors.reduce((acc, v) => acc + (v.balance || 0), 0);
 
+  const exportQuery = new URLSearchParams({ kind: "vendors" });
+  if (params.search) exportQuery.set("search", params.search);
+  if (activeBranchId) exportQuery.set("branchId", activeBranchId);
+
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6">
       <PageHeading
         title="Vendors"
         description={`${vendors.length} ${vendors.length === 1 ? "vendor" : "vendors"} in your scope · Total Liability: ${totalLiability < 0 ? `-₹${Math.abs(totalLiability).toLocaleString("en-IN")}` : `₹${totalLiability.toLocaleString("en-IN")}`}`}
         actions={
-          canCreate ? (
-            <VendorDialog
-              branches={branchOptions}
-              canSelectBranch={isSuper}
-              defaultBranchId={user.branchId}
-            />
-          ) : undefined
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportButton href={`/api/reports/export?${exportQuery.toString()}&format=csv`} label="Export CSV" />
+            <ExportButton href={`/api/reports/export?${exportQuery.toString()}&format=pdf`} label="Export PDF" />
+            {canCreate && (
+              <VendorDialog
+                branches={branchOptions}
+                canSelectBranch={isSuper}
+                defaultBranchId={user.branchId}
+              />
+            )}
+          </div>
         }
       />
 

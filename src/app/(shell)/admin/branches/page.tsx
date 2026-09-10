@@ -9,6 +9,8 @@ import { PageHeading } from "@/components/layout/PageHeading";
 import { BranchDialog } from "@/components/branches/BranchDialog";
 import { ArchiveBranchButton } from "@/components/branches/ArchiveBranchButton";
 
+import { ExportButton } from "@/components/reports/ExportButton";
+
 export const metadata: Metadata = { title: "Divisions" };
 export const dynamic = "force-dynamic";
 
@@ -29,6 +31,8 @@ export default async function BranchesPage() {
   const isSuper = user.role === Role.SUPER_ADMIN;
   const branches = await listBranches(user, { includeArchived: isSuper });
 
+  const exportQuery = new URLSearchParams({ kind: "branches" });
+
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6">
       <PageHeading
@@ -39,9 +43,13 @@ export default async function BranchesPage() {
             : "Your division details."
         }
         actions={
-          hasPermission(user, PERMISSIONS.BRANCH_CREATE) ? (
-            <BranchDialog canEditCode />
-          ) : undefined
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportButton href={`/api/reports/export?${exportQuery.toString()}&format=csv`} label="Export CSV" />
+            <ExportButton href={`/api/reports/export?${exportQuery.toString()}&format=pdf`} label="Export PDF" />
+            {hasPermission(user, PERMISSIONS.BRANCH_CREATE) && (
+              <BranchDialog canEditCode />
+            )}
+          </div>
         }
       />
 

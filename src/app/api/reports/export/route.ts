@@ -25,25 +25,70 @@ import { createElement } from "react";
 const KINDS: readonly ReportKind[] = [
   "quotations",
   "customers",
+  "customer-outstanding",
+  "customer-payments",
+  "vendors",
+  "vendor-outstanding",
+  "vendor-payments",
+  "staff",
+  "users",
+  "branches",
+  "audit",
   "ledger",
   "gst",
   "manager-performance",
   "branch-performance",
 ];
 
-export async function GET(request: NextRequest) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "Not signed in" }, { status: 401 });
-  }
+function canExportKind(user: any, kind: ReportKind): boolean {
   if (
-    !hasAnyPermission(user, [
+    hasAnyPermission(user, [
       PERMISSIONS.REPORT_VIEW_ALL,
       PERMISSIONS.REPORT_VIEW_BRANCH,
       PERMISSIONS.REPORT_VIEW_OWN,
     ])
   ) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return true;
+  }
+
+  switch (kind) {
+    case "quotations":
+      return hasAnyPermission(user, [
+        PERMISSIONS.QUOTATION_VIEW_ALL,
+        PERMISSIONS.QUOTATION_VIEW_BRANCH,
+        PERMISSIONS.QUOTATION_VIEW_OWN,
+      ]);
+    case "customers":
+    case "customer-outstanding":
+    case "vendors":
+    case "vendor-outstanding":
+      return hasAnyPermission(user, [PERMISSIONS.CUSTOMER_VIEW]);
+    case "customer-payments":
+    case "vendor-payments":
+    case "ledger":
+      return hasAnyPermission(user, [
+        PERMISSIONS.LEDGER_VIEW_ALL,
+        PERMISSIONS.LEDGER_VIEW_BRANCH,
+        PERMISSIONS.LEDGER_VIEW_OWN,
+        PERMISSIONS.CUSTOMER_VIEW,
+      ]);
+    case "staff":
+      return hasAnyPermission(user, [PERMISSIONS.STAFF_VIEW]);
+    case "users":
+      return hasAnyPermission(user, [PERMISSIONS.USER_VIEW_ALL, PERMISSIONS.USER_VIEW]);
+    case "branches":
+      return hasAnyPermission(user, [PERMISSIONS.BRANCH_VIEW_ALL, PERMISSIONS.BRANCH_VIEW]);
+    case "audit":
+      return hasAnyPermission(user, [PERMISSIONS.AUDIT_VIEW]);
+    default:
+      return false;
+  }
+}
+
+export async function GET(request: NextRequest) {
+  const user = await getSessionUser();
+  if (!user) {
+    return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   }
 
   const params = request.nextUrl.searchParams;
@@ -52,13 +97,26 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unknown report" }, { status: 400 });
   }
 
+  if (!canExportKind(user, kind)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const format = params.get("format") ?? "csv";
 
   const filters = {
+    search: params.get("search") ?? undefined,
     from: params.get("from") ?? undefined,
     to: params.get("to") ?? undefined,
     branchId: params.get("branchId") ?? undefined,
     status: params.get("status") ?? undefined,
+    paymentMethod: params.get("paymentMethod") ?? undefined,
+    direction: params.get("direction") ?? undefined,
+    sortBy: params.get("sortBy") ?? undefined,
+    customerId: params.get("customerId") ?? undefined,
+    vendorId: params.get("vendorId") ?? undefined,
+    partyType: params.get("partyType") ?? undefined,
+    action: params.get("action") ?? undefined,
+    entity: params.get("entity") ?? undefined,
   };
 
   const report = await buildReport(user, kind, filters);
@@ -99,8 +157,6 @@ export async function GET(request: NextRequest) {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename="${filename}"`,
-      // A report is a point-in-time extract; caching it would serve stale
-      // figures and, on a shared proxy, another user's scope.
       "Cache-Control": "no-store",
     },
   });

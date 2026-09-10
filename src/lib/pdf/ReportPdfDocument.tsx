@@ -115,15 +115,34 @@ function getColumnFlex(key: string): number {
     case "createdBy":
     case "manager":
     case "branch":
+    case "name":
+    case "vendor":
+    case "summary":
+    case "location":
       return 2.2;
     case "reference":
     case "referenceNo":
+    case "voucherNo":
+    case "email":
+    case "timestamp":
+    case "userName":
       return 1.8;
     case "date":
-      return 1.6;
+    case "phone":
+    case "gstNumber":
+    case "city":
+    case "state":
+    case "role":
+    case "designation":
+    case "ipAddress":
+      return 1.4;
     case "status":
     case "code":
     case "method":
+    case "direction":
+    case "action":
+    case "entity":
+    case "type":
       return 1.2;
     default:
       return 1.4;

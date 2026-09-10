@@ -17,6 +17,8 @@ import { EDITABLE_STATUSES } from "@/types/quotation";
 
 import { getActiveBranchFilter } from "@/modules/branches/branch-context";
 
+import { ExportButton } from "@/components/reports/ExportButton";
+
 export const metadata: Metadata = { title: "Quotations" };
 export const dynamic = "force-dynamic";
 
@@ -53,18 +55,29 @@ export default async function QuotationsPage({ searchParams }: PageProps) {
   const canUpdate = hasPermission(user, PERMISSIONS.QUOTATION_UPDATE_OWN);
   const grouping = settings.display.numberGrouping;
 
+  const exportQuery = new URLSearchParams({ kind: "quotations" });
+  if (params.search) exportQuery.set("search", params.search);
+  if (params.status) exportQuery.set("status", params.status);
+  if (params.from) exportQuery.set("from", params.from);
+  if (params.to) exportQuery.set("to", params.to);
+  if (activeBranchId) exportQuery.set("branchId", activeBranchId);
+
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6">
       <PageHeading
         title="Quotations"
         description={`${total} ${total === 1 ? "quotation" : "quotations"} in your scope.`}
         actions={
-          hasPermission(user, PERMISSIONS.QUOTATION_CREATE) ? (
-            <Button render={<Link href="/quotations/new" />}>
-              <Plus />
-              New quotation
-            </Button>
-          ) : undefined
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportButton href={`/api/reports/export?${exportQuery.toString()}&format=csv`} label="Export CSV" />
+            <ExportButton href={`/api/reports/export?${exportQuery.toString()}&format=pdf`} label="Export PDF" />
+            {hasPermission(user, PERMISSIONS.QUOTATION_CREATE) && (
+              <Button render={<Link href="/quotations/new" />}>
+                <Plus />
+                New quotation
+              </Button>
+            )}
+          </div>
         }
       />
 

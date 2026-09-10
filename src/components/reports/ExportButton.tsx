@@ -15,9 +15,13 @@ import { Button } from "@/components/ui/button";
 export function ExportButton({
   href,
   label = "Export CSV",
+  variant = "outline",
+  size,
 }: {
   readonly href: string;
   readonly label?: string;
+  readonly variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
+  readonly size?: "default" | "sm" | "lg" | "icon" | "xs";
 }) {
   const [busy, setBusy] = useState(false);
 
@@ -61,7 +65,7 @@ export function ExportButton({
   };
 
   return (
-    <Button onClick={download} disabled={busy}>
+    <Button onClick={download} disabled={busy} variant={variant} size={size}>
       {busy ? <Loader2 className="animate-spin" /> : <Download />}
       {label}
     </Button>

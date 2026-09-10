@@ -13,6 +13,8 @@ import { PageHeading } from "@/components/layout/PageHeading";
 import { Button } from "@/components/ui/button";
 import { formatMoney, formatListDate } from "@/lib/format/number";
 
+import { ExportButton } from "@/components/reports/ExportButton";
+
 import { getActiveBranchFilter } from "@/modules/branches/branch-context";
 
 export const metadata: Metadata = { title: "Customer Outstanding" };
@@ -43,16 +45,27 @@ export default async function CustomerOutstandingPage({ searchParams }: PageProp
 
   const grouping = settings.display.numberGrouping;
 
+  const exportQuery = new URLSearchParams({ kind: "customer-outstanding" });
+  if (params.search) exportQuery.set("search", params.search);
+  if (params.from) exportQuery.set("from", params.from);
+  if (params.to) exportQuery.set("to", params.to);
+  if (params.sortBy) exportQuery.set("sortBy", params.sortBy);
+  if (activeBranchId) exportQuery.set("branchId", activeBranchId);
+
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6">
       <PageHeading
         title="Customer Outstanding"
         description="Real-time breakdown of billed amounts, actual customer payments, and outstanding balances."
         actions={
-          <Button render={<Link href="/customer-payments" />}>
-            <Wallet className="size-4" />
-            Record Customer Payment
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportButton href={`/api/reports/export?${exportQuery.toString()}&format=csv`} label="Export CSV" />
+            <ExportButton href={`/api/reports/export?${exportQuery.toString()}&format=pdf`} label="Export PDF" />
+            <Button render={<Link href="/customer-payments" />}>
+              <Wallet className="size-4" />
+              Record Customer Payment
+            </Button>
+          </div>
         }
       />
 

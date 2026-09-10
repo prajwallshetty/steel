@@ -15,6 +15,8 @@ import { UserRowActions } from "@/components/users/UserRowActions";
 export const metadata: Metadata = { title: "Users" };
 export const dynamic = "force-dynamic";
 
+import { ExportButton } from "@/components/reports/ExportButton";
+
 import { getActiveBranchFilter } from "@/modules/branches/branch-context";
 
 export default async function UsersPage({
@@ -50,20 +52,28 @@ export default async function UsersPage({
     name: branch.name,
   }));
 
+  const exportQuery = new URLSearchParams({ kind: "users" });
+  if (params.search) exportQuery.set("search", params.search);
+  if (activeBranchId) exportQuery.set("branchId", activeBranchId);
+
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6">
       <PageHeading
         title="Users"
         description={`${users.length} ${users.length === 1 ? "user" : "users"}${user.branchName ? ` in ${user.branchName}` : " across all branches"}.`}
         actions={
-          hasPermission(user, PERMISSIONS.USER_CREATE) ? (
-            <UserDialog
-              branches={branchOptions}
-              assignableRoles={assignableRoles}
-              canSelectBranch={isSuper}
-              defaultBranchId={user.branchId}
-            />
-          ) : undefined
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportButton href={`/api/reports/export?${exportQuery.toString()}&format=csv`} label="Export CSV" />
+            <ExportButton href={`/api/reports/export?${exportQuery.toString()}&format=pdf`} label="Export PDF" />
+            {hasPermission(user, PERMISSIONS.USER_CREATE) && (
+              <UserDialog
+                branches={branchOptions}
+                assignableRoles={assignableRoles}
+                canSelectBranch={isSuper}
+                defaultBranchId={user.branchId}
+              />
+            )}
+          </div>
         }
       />
 

@@ -12,6 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { FilterBar } from "@/components/shared/FilterBar";
 import { PageHeading } from "@/components/layout/PageHeading";
 import { AuditDiff } from "@/components/admin/AuditDiff";
+import { ExportButton } from "@/components/reports/ExportButton";
 
 export const metadata: Metadata = { title: "Audit log" };
 export const dynamic = "force-dynamic";
@@ -49,11 +50,25 @@ export default async function AuditPage({
     isSuper ? listSelectableBranches(user) : Promise.resolve([]),
   ]);
 
+  const exportQuery = new URLSearchParams({ kind: "audit" });
+  if (params.search) exportQuery.set("search", params.search);
+  if (params.action) exportQuery.set("action", params.action);
+  if (params.entity) exportQuery.set("entity", params.entity);
+  if (params.branchId) exportQuery.set("branchId", params.branchId);
+  if (params.from) exportQuery.set("from", params.from);
+  if (params.to) exportQuery.set("to", params.to);
+
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6">
       <PageHeading
         title="Audit log"
         description="Append-only record of every change. Nothing here can be edited or deleted, by anyone."
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportButton href={`/api/reports/export?${exportQuery.toString()}&format=csv`} label="Export CSV" />
+            <ExportButton href={`/api/reports/export?${exportQuery.toString()}&format=pdf`} label="Export PDF" />
+          </div>
+        }
       />
 
       <Card>

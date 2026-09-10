@@ -13,6 +13,8 @@ import { CustomerDialog } from "@/components/customers/CustomerDialog";
 import { CustomerRowActions } from "@/components/customers/CustomerRowActions";
 import { Button } from "@/components/ui/button";
 
+import { ExportButton } from "@/components/reports/ExportButton";
+
 import { getActiveBranchFilter } from "@/modules/branches/branch-context";
 
 export const metadata: Metadata = { title: "Customers" };
@@ -43,19 +45,27 @@ export default async function CustomersPage({ searchParams }: PageProps) {
     name: branch.name,
   }));
 
+  const exportQuery = new URLSearchParams({ kind: "customers" });
+  if (params.search) exportQuery.set("search", params.search);
+  if (activeBranchId) exportQuery.set("branchId", activeBranchId);
+
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6">
       <PageHeading
         title="Customers"
         description={`${customers.length} ${customers.length === 1 ? "customer" : "customers"} in your scope.`}
         actions={
-          canCreate ? (
-            <CustomerDialog
-              branches={branchOptions}
-              canSelectBranch={isSuper}
-              defaultBranchId={user.branchId}
-            />
-          ) : undefined
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportButton href={`/api/reports/export?${exportQuery.toString()}&format=csv`} label="Export CSV" />
+            <ExportButton href={`/api/reports/export?${exportQuery.toString()}&format=pdf`} label="Export PDF" />
+            {canCreate && (
+              <CustomerDialog
+                branches={branchOptions}
+                canSelectBranch={isSuper}
+                defaultBranchId={user.branchId}
+              />
+            )}
+          </div>
         }
       />
 

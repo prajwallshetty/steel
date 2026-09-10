@@ -8,6 +8,20 @@ import {
   quotationWhere,
   type ScopeSubject,
 } from "@/modules/permissions/scope";
+import { listCustomers } from "@/modules/customers/customer-service";
+import { listCustomerOutstanding } from "@/modules/customer-outstanding/customer-outstanding-service";
+import { listPartnerPayments } from "@/modules/receipt-payment/partner-payment-service";
+import { listVendors } from "@/modules/vendors/vendor-service";
+import { listVendorOutstanding } from "@/modules/vendor-outstanding/vendor-outstanding-service";
+import { listStaff } from "@/modules/staff/staff-service";
+import {
+  getCustomerLedger,
+  getVendorLedger,
+  getConsolidatedLedger,
+} from "@/modules/receipt-payment/receipt-service";
+import { listUsers } from "@/modules/users/user-service";
+import { listBranches } from "@/modules/branches/branch-service";
+import { listAuditLog } from "@/modules/audit/audit-queries";
 
 /**
  * Reporting.
@@ -19,16 +33,34 @@ import {
 export type ReportKind =
   | "quotations"
   | "customers"
+  | "customer-outstanding"
+  | "customer-payments"
+  | "vendors"
+  | "vendor-outstanding"
+  | "vendor-payments"
+  | "staff"
+  | "users"
+  | "branches"
+  | "audit"
   | "ledger"
   | "gst"
   | "manager-performance"
   | "branch-performance";
 
 export interface ReportFilters {
+  readonly search?: string;
   readonly from?: string;
   readonly to?: string;
   readonly branchId?: string;
   readonly status?: string;
+  readonly paymentMethod?: string;
+  readonly direction?: string;
+  readonly sortBy?: string;
+  readonly customerId?: string;
+  readonly vendorId?: string;
+  readonly partyType?: string;
+  readonly action?: string;
+  readonly entity?: string;
 }
 
 export interface ReportTable {
@@ -38,6 +70,18 @@ export interface ReportTable {
 }
 
 const SETTLED: LedgerStatus[] = [LedgerStatus.RECEIVED, LedgerStatus.CLEARED];
+
+function formatDateValue(val: Date | string | null | undefined): string {
+  if (!val) return "—";
+  if (val instanceof Date) return val.toISOString().slice(0, 10);
+  return String(val).slice(0, 10);
+}
+
+function formatTimestampValue(val: Date | string | null | undefined): string {
+  if (!val) return "—";
+  if (val instanceof Date) return val.toISOString().replace("T", " ").slice(0, 19);
+  return String(val).replace("T", " ").slice(0, 19);
+}
 
 function quotationFilter(subject: ScopeSubject, filters: ReportFilters) {
   const conditions: Record<string, unknown>[] = [
@@ -74,7 +118,25 @@ export async function buildReport(
     case "quotations":
       return quotationReport(subject, filters);
     case "customers":
-      return customerReport(subject, filters);
+      return customersReport(subject, filters);
+    case "customer-outstanding":
+      return customerOutstandingReport(subject, filters);
+    case "customer-payments":
+      return customerPaymentsReport(subject, filters);
+    case "vendors":
+      return vendorsReport(subject, filters);
+    case "vendor-outstanding":
+      return vendorOutstandingReport(subject, filters);
+    case "vendor-payments":
+      return vendorPaymentsReport(subject, filters);
+    case "staff":
+      return staffReport(subject, filters);
+    case "users":
+      return usersReport(subject, filters);
+    case "branches":
+      return branchesReport(subject);
+    case "audit":
+      return auditReport(subject, filters);
     case "ledger":
       return ledgerReport(subject, filters);
     case "gst":
@@ -101,7 +163,7 @@ async function quotationReport(
   });
 
   return {
-    title: "Quotation report",
+    title: "Quotations report",
     columns: [
       { key: "reference", label: "Reference" },
       { key: "date", label: "Date" },
@@ -127,33 +189,349 @@ async function quotationReport(
   };
 }
 
-async function customerReport(
+async function customersReport(
   subject: ScopeSubject,
   filters: ReportFilters,
 ): Promise<ReportTable> {
-  const grouped = await prisma.quotation.groupBy({
-    by: ["customerId", "partyName"],
-    where: quotationFilter(subject, filters),
-    _sum: { grandTotal: true, totalQuantity: true },
-    _count: { _all: true },
+  const rows = await listCustomers(subject, {
+    search: filters.search,
+    branchId: filters.branchId,
   });
 
   return {
-    title: "Customer report",
+    title: "Customers report",
     columns: [
-      { key: "customer", label: "Customer" },
+      { key: "name", label: "Party Name" },
+      { key: "city", label: "Location" },
+      { key: "garudaBalance", label: "Party Balance", numeric: true },
+      { key: "currentDues", label: "Current Dues", numeric: true },
+      { key: "phone", label: "Phone" },
+      { key: "email", label: "Email" },
+      { key: "gstNumber", label: "GSTIN" },
+      { key: "branch", label: "Branch" },
       { key: "quotations", label: "Quotations", numeric: true },
-      { key: "quantity", label: "Qty (MT)", numeric: true },
-      { key: "value", label: "Total value", numeric: true },
     ],
-    rows: grouped
-      .map((row) => ({
-        customer: row.partyName,
-        quotations: row._count._all,
-        quantity: Number(row._sum?.totalQuantity ?? 0),
-        value: Number(row._sum?.grandTotal ?? 0),
-      }))
-      .sort((a, b) => b.value - a.value),
+    rows: rows.map((row) => ({
+      name: row.name,
+      city: row.city || "—",
+      garudaBalance: row.garudaBalance,
+      currentDues: row.currentDues,
+      phone: row.phone ?? "—",
+      email: row.email ?? "—",
+      gstNumber: row.gstNumber ?? "—",
+      branch: row.branchName,
+      quotations: row.quotationCount,
+    })),
+  };
+}
+
+async function customerOutstandingReport(
+  subject: ScopeSubject,
+  filters: ReportFilters,
+): Promise<ReportTable> {
+  const data = await listCustomerOutstanding(subject, {
+    search: filters.search,
+    branchId: filters.branchId,
+    from: filters.from,
+    to: filters.to,
+    sortBy: filters.sortBy as any,
+  });
+
+  return {
+    title: "Customer Outstanding report",
+    columns: [
+      { key: "name", label: "Customer Name" },
+      { key: "location", label: "Location" },
+      { key: "branch", label: "Branch" },
+      { key: "outstanding", label: "Outstanding Dues", numeric: true },
+      { key: "status", label: "Payment Status" },
+      { key: "lastPayment", label: "Last Payment" },
+      { key: "lastActivity", label: "Last Activity" },
+    ],
+    rows: data.items.map((item) => ({
+      name: item.name,
+      location: [item.city, item.state].filter(Boolean).join(", ") || "—",
+      branch: item.branchName,
+      outstanding: item.outstandingAmount,
+      status: item.paymentStatus,
+      lastPayment: item.lastPaymentDate ? formatDateValue(item.lastPaymentDate) : "No payments",
+      lastActivity: formatDateValue(item.lastTransactionDate),
+    })),
+  };
+}
+
+async function customerPaymentsReport(
+  subject: ScopeSubject,
+  filters: ReportFilters,
+): Promise<ReportTable> {
+  const page = await listPartnerPayments(subject, "CUSTOMER", {
+    search: filters.search,
+    from: filters.from,
+    to: filters.to,
+    status: filters.status as any,
+    paymentMethod: filters.paymentMethod as any,
+    direction: filters.direction as any,
+    branchId: filters.branchId,
+  });
+
+  return {
+    title: "Customer Payments report",
+    columns: [
+      { key: "reference", label: "Voucher No" },
+      { key: "date", label: "Date" },
+      { key: "direction", label: "Type" },
+      { key: "customer", label: "Customer Name" },
+      { key: "particular", label: "Description" },
+      { key: "method", label: "Method" },
+      { key: "referenceNo", label: "Note number" },
+      { key: "amount", label: "Amount", numeric: true },
+    ],
+    rows: page.rows.map((row) => ({
+      reference: row.reference,
+      date: formatDateValue(row.entryDate),
+      direction: row.direction === "CREDIT" ? "Receipt" : "Payment",
+      customer: row.partyName,
+      particular: row.particular,
+      method: row.paymentMethod.replace(/_/g, " ").toLowerCase(),
+      referenceNo: row.referenceNo ?? "—",
+      amount: Number(row.amount),
+    })),
+  };
+}
+
+async function vendorsReport(
+  subject: ScopeSubject,
+  filters: ReportFilters,
+): Promise<ReportTable> {
+  const rows = await listVendors(subject, {
+    search: filters.search,
+    branchId: filters.branchId,
+  });
+
+  return {
+    title: "Vendors report",
+    columns: [
+      { key: "name", label: "Vendor Name" },
+      { key: "balance", label: "Balance", numeric: true },
+      { key: "phone", label: "Phone" },
+      { key: "email", label: "Email" },
+      { key: "gstNumber", label: "GSTIN" },
+      { key: "location", label: "City / State" },
+      { key: "branch", label: "Branch" },
+    ],
+    rows: rows.map((v) => ({
+      name: v.name,
+      balance: v.balance,
+      phone: v.phone ?? "—",
+      email: v.email ?? "—",
+      gstNumber: v.gstNumber ?? "—",
+      location: [v.city, v.state].filter(Boolean).join(", ") || "—",
+      branch: v.branchName,
+    })),
+  };
+}
+
+async function vendorOutstandingReport(
+  subject: ScopeSubject,
+  filters: ReportFilters,
+): Promise<ReportTable> {
+  const data = await listVendorOutstanding(subject, {
+    search: filters.search,
+    branchId: filters.branchId,
+    from: filters.from,
+    to: filters.to,
+    sortBy: filters.sortBy as any,
+  });
+
+  return {
+    title: "Vendor Outstanding report",
+    columns: [
+      { key: "name", label: "Vendor Name" },
+      { key: "location", label: "Location" },
+      { key: "branch", label: "Branch" },
+      { key: "payable", label: "Total Payable", numeric: true },
+      { key: "paid", label: "Total Paid", numeric: true },
+      { key: "outstanding", label: "Outstanding Liability", numeric: true },
+      { key: "status", label: "Payment Status" },
+      { key: "lastPayment", label: "Last Payment" },
+      { key: "lastActivity", label: "Last Activity" },
+    ],
+    rows: data.items.map((item) => ({
+      name: item.name,
+      location: [item.city, item.state].filter(Boolean).join(", ") || "—",
+      branch: item.branchName,
+      payable: item.totalPayable,
+      paid: item.totalPaid,
+      outstanding: item.outstandingAmount,
+      status: item.paymentStatus,
+      lastPayment: item.lastPaymentDate ? formatDateValue(item.lastPaymentDate) : "No payments",
+      lastActivity: formatDateValue(item.lastTransactionDate),
+    })),
+  };
+}
+
+async function vendorPaymentsReport(
+  subject: ScopeSubject,
+  filters: ReportFilters,
+): Promise<ReportTable> {
+  const page = await listPartnerPayments(subject, "VENDOR", {
+    search: filters.search,
+    from: filters.from,
+    to: filters.to,
+    status: filters.status as any,
+    paymentMethod: filters.paymentMethod as any,
+    direction: filters.direction as any,
+    branchId: filters.branchId,
+  });
+
+  return {
+    title: "Vendor Payments report",
+    columns: [
+      { key: "reference", label: "Voucher No" },
+      { key: "date", label: "Date" },
+      { key: "direction", label: "Type" },
+      { key: "vendor", label: "Vendor Name" },
+      { key: "particular", label: "Description" },
+      { key: "method", label: "Method" },
+      { key: "referenceNo", label: "Note number" },
+      { key: "amount", label: "Amount", numeric: true },
+    ],
+    rows: page.rows.map((row) => ({
+      reference: row.reference,
+      date: formatDateValue(row.entryDate),
+      direction: row.direction === "CREDIT" ? "Receipt" : "Payment",
+      vendor: row.partyName,
+      particular: row.particular,
+      method: row.paymentMethod.replace(/_/g, " ").toLowerCase(),
+      referenceNo: row.referenceNo ?? "—",
+      amount: Number(row.amount),
+    })),
+  };
+}
+
+async function staffReport(
+  subject: ScopeSubject,
+  filters: ReportFilters,
+): Promise<ReportTable> {
+  const rows = await listStaff(subject, {
+    search: filters.search,
+    branchId: filters.branchId,
+  });
+
+  return {
+    title: "Staff Members report",
+    columns: [
+      { key: "name", label: "Staff Name" },
+      { key: "designation", label: "Designation" },
+      { key: "balance", label: "Balance", numeric: true },
+      { key: "phone", label: "Phone" },
+      { key: "email", label: "Email" },
+      { key: "branch", label: "Branch" },
+    ],
+    rows: rows.map((s) => ({
+      name: s.name,
+      designation: s.designation ?? "Staff",
+      balance: s.balance,
+      phone: s.phone ?? "—",
+      email: s.email ?? "—",
+      branch: s.branchName,
+    })),
+  };
+}
+
+async function usersReport(
+  subject: ScopeSubject,
+  filters: ReportFilters,
+): Promise<ReportTable> {
+  const rows = await listUsers(subject, {
+    search: filters.search,
+    branchId: filters.branchId,
+  });
+
+  return {
+    title: "Users report",
+    columns: [
+      { key: "name", label: "Name" },
+      { key: "username", label: "Username" },
+      { key: "role", label: "Role" },
+      { key: "branch", label: "Branch" },
+      { key: "email", label: "Email" },
+      { key: "phone", label: "Phone" },
+      { key: "status", label: "Status" },
+    ],
+    rows: rows.map((u) => ({
+      name: u.name,
+      username: u.username,
+      role: u.role,
+      branch: u.branchName ?? "All branches",
+      email: u.email ?? "—",
+      phone: u.phone ?? "—",
+      status: u.status,
+    })),
+  };
+}
+
+async function branchesReport(subject: ScopeSubject): Promise<ReportTable> {
+  const rows = await listBranches(subject, { includeArchived: true });
+
+  return {
+    title: "Divisions report",
+    columns: [
+      { key: "code", label: "Code" },
+      { key: "name", label: "Division Name" },
+      { key: "state", label: "State" },
+      { key: "startingBalance", label: "Starting Balance", numeric: true },
+      { key: "closingBalance", label: "Closing Balance", numeric: true },
+      { key: "cashInHand", label: "Cash in Hand", numeric: true },
+      { key: "userCount", label: "Users", numeric: true },
+      { key: "status", label: "Status" },
+    ],
+    rows: rows.map((b) => ({
+      code: b.code,
+      name: b.name,
+      state: b.state,
+      startingBalance: b.startingBalance,
+      closingBalance: b.closingBalance,
+      cashInHand: b.cashInHand,
+      userCount: b.userCount,
+      status: b.status,
+    })),
+  };
+}
+
+async function auditReport(
+  subject: ScopeSubject,
+  filters: ReportFilters,
+): Promise<ReportTable> {
+  const rows = await listAuditLog(subject, {
+    search: filters.search,
+    action: filters.action as any,
+    entity: filters.entity,
+    branchId: filters.branchId,
+    from: filters.from,
+    to: filters.to,
+  });
+
+  return {
+    title: "Audit Log report",
+    columns: [
+      { key: "timestamp", label: "When" },
+      { key: "userName", label: "Who" },
+      { key: "action", label: "Action" },
+      { key: "entity", label: "Entity" },
+      { key: "summary", label: "Summary" },
+      { key: "branch", label: "Branch" },
+      { key: "ipAddress", label: "IP Address" },
+    ],
+    rows: rows.map((row) => ({
+      timestamp: formatTimestampValue(row.createdAt),
+      userName: row.userName,
+      action: row.action,
+      entity: row.entity,
+      summary: row.summary,
+      branch: row.branchName ?? "—",
+      ipAddress: row.ipAddress ?? "—",
+    })),
   };
 }
 
@@ -161,55 +539,53 @@ async function ledgerReport(
   subject: ScopeSubject,
   filters: ReportFilters,
 ): Promise<ReportTable> {
-  const rows = await prisma.cashLedgerEntry.findMany({
-    where: ledgerFilter(subject, filters),
-    orderBy: { entryDate: "asc" },
-    take: 1000,
-    include: {
-      customer: { select: { name: true } },
-      branch: { select: { name: true } },
-      createdBy: { select: { name: true } },
-    },
-  });
+  let ledger = null;
+  let title = "Consolidated Ledger report";
 
-  let balance = 0;
+  if (filters.partyType === "vendor" && filters.vendorId) {
+    ledger = await getVendorLedger(subject, filters.vendorId, {
+      from: filters.from,
+      to: filters.to,
+      branchId: filters.branchId,
+    });
+    title = `Vendor Ledger - ${ledger.vendorName}`;
+  } else if (filters.partyType === "customer" && filters.customerId) {
+    ledger = await getCustomerLedger(subject, filters.customerId, {
+      from: filters.from,
+      to: filters.to,
+      branchId: filters.branchId,
+    });
+    title = `Customer Ledger - ${ledger.customerName}`;
+  } else {
+    ledger = await getConsolidatedLedger(subject, {
+      from: filters.from,
+      to: filters.to,
+      branchId: filters.branchId,
+    });
+  }
+
   return {
-    title: "Receipts & Payments report",
+    title,
     columns: [
-      { key: "reference", label: "Reference" },
       { key: "date", label: "Date" },
-      { key: "customer", label: "Party Name" },
-      { key: "particular", label: "Paid Through" },
-      { key: "method", label: "Method" },
-      { key: "referenceNo", label: "Note number" },
-      { key: "status", label: "Status" },
-      { key: "branch", label: "Branch" },
-      { key: "createdBy", label: "Entered by" },
-      { key: "credit", label: "Credit", numeric: true },
-      { key: "debit", label: "Debit", numeric: true },
+      { key: "voucherNo", label: "Voucher No" },
+      { key: "type", label: "Type" },
+      { key: "partyName", label: "Party Name" },
+      { key: "description", label: "Description" },
+      { key: "debit", label: "Debit (+)", numeric: true },
+      { key: "credit", label: "Credit (-)", numeric: true },
       { key: "balance", label: "Balance", numeric: true },
     ],
-    rows: rows.map((row) => {
-      const amount = Number(row.amount);
-      const settled = SETTLED.includes(row.status);
-      const credit = row.direction === "CREDIT" ? amount : 0;
-      const debit = row.direction === "DEBIT" ? amount : 0;
-      if (settled) balance += credit - debit;
-      return {
-        reference: row.reference,
-        date: row.entryDate.toISOString().slice(0, 10),
-        customer: row.partyName ?? row.customer?.name ?? "—",
-        particular: row.particular,
-        method: row.paymentMethod,
-        referenceNo: row.referenceNo ?? "—",
-        status: row.status,
-        branch: row.branch.name,
-        createdBy: row.createdBy?.name ?? "System",
-        credit,
-        debit,
-        balance,
-      };
-    }),
+    rows: ledger.rows.map((row: any) => ({
+      date: formatDateValue(row.date),
+      voucherNo: row.voucherNo,
+      type: row.type,
+      partyName: row.partyName ?? "—",
+      description: row.description,
+      debit: row.debit,
+      credit: row.credit,
+      balance: row.balance,
+    })),
   };
 }
 

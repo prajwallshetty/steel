@@ -14,6 +14,8 @@ import { PageHeading } from "@/components/layout/PageHeading";
 import { LedgerFilter } from "./LedgerFilter";
 import { Button } from "@/components/ui/button";
 
+import { ExportButton } from "@/components/reports/ExportButton";
+
 import { getActiveBranchFilter } from "@/modules/branches/branch-context";
 
 export const metadata: Metadata = { title: "Ledger Accounts" };
@@ -94,22 +96,34 @@ export default async function CustomerLedgerPage({ searchParams }: PageProps) {
     ? `/ledger/print?vendorId=${selectedVendorId}&partyType=vendor${params.from ? `&from=${params.from}` : ""}${params.to ? `&to=${params.to}` : ""}`
     : `/ledger/print?customerId=${selectedCustomerId}&partyType=customer${params.from ? `&from=${params.from}` : ""}${params.to ? `&to=${params.to}` : ""}`;
 
+  const exportQuery = new URLSearchParams({ kind: "ledger" });
+  if (partyType) exportQuery.set("partyType", partyType);
+  if (selectedCustomerId) exportQuery.set("customerId", selectedCustomerId);
+  if (selectedVendorId) exportQuery.set("vendorId", selectedVendorId);
+  if (params.from) exportQuery.set("from", params.from);
+  if (params.to) exportQuery.set("to", params.to);
+  if (activeBranchId) exportQuery.set("branchId", activeBranchId);
+
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6">
       <PageHeading
         title={accountName}
         description="Showing full financial transactions (invoices, bills, receipts, and payments). Filter by customer or vendor below."
         actions={
-          isFilteredAccount && (selectedCustomerId || selectedVendorId) ? (
-            <Button
-              variant="outline"
-              size="sm"
-              render={<Link href={printHref} target="_blank" />}
-            >
-              <Printer className="size-4 mr-1.5" />
-              Print Statement
-            </Button>
-          ) : undefined
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportButton href={`/api/reports/export?${exportQuery.toString()}&format=csv`} label="Export CSV" />
+            <ExportButton href={`/api/reports/export?${exportQuery.toString()}&format=pdf`} label="Export PDF" />
+            {isFilteredAccount && (selectedCustomerId || selectedVendorId) && (
+              <Button
+                variant="outline"
+                size="sm"
+                render={<Link href={printHref} target="_blank" />}
+              >
+                <Printer className="size-4 mr-1.5" />
+                Print Statement
+              </Button>
+            )}
+          </div>
         }
       />
 

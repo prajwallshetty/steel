@@ -238,6 +238,48 @@ const rowsToCreate = (draft: QuotationDraftInput) =>
     highlight: row.highlight,
   }));
 
+async function resolveOrCreateCustomer(
+  tx: Prisma.TransactionClient,
+  branchId: string,
+  providedCustomerId: string | null | undefined,
+  partyName: string | null | undefined,
+  location: string | null | undefined,
+  userId: string,
+): Promise<string | null> {
+  if (providedCustomerId) {
+    return providedCustomerId;
+  }
+
+  const cleanName = partyName?.trim();
+  if (!cleanName) return null;
+
+  const existing = await tx.customer.findFirst({
+    where: {
+      branchId,
+      name: { equals: cleanName, mode: "insensitive" },
+      deletedAt: null,
+    },
+    select: { id: true },
+  });
+
+  if (existing) {
+    return existing.id;
+  }
+
+  const created = await tx.customer.create({
+    data: {
+      name: cleanName,
+      city: location?.trim() || null,
+      branchId,
+      createdById: userId,
+      updatedById: userId,
+    },
+    select: { id: true },
+  });
+
+  return created.id;
+}
+
 export interface CreateQuotationInput extends QuotationDraftInput {
   readonly branchId?: string | null;
   readonly customerId?: string | null;
@@ -276,12 +318,21 @@ export async function createQuotation(
     const serial = await nextSequenceValue(branchId, "QUOTATION", year, tx);
     const reference = formatReference(branch.code, "QUOTATION", year, serial);
 
+    const customerId = await resolveOrCreateCustomer(
+      tx,
+      branchId,
+      input.customerId,
+      input.header.partyName,
+      input.header.location,
+      subject.id,
+    );
+
     const q = await tx.quotation.create({
       data: {
         reference,
         status: input.status ?? QuotationStatus.APPROVED,
         branchId,
-        customerId: input.customerId ?? null,
+        customerId,
         assignedToId,
         title: input.header.title,
         quotationDate: input.header.date,
@@ -350,11 +401,20 @@ export async function updateQuotation(
     // and a positional diff would be more fragile than a clean rewrite.
     await tx.quotationRow.deleteMany({ where: { quotationId: id } });
 
+    const customerId = await resolveOrCreateCustomer(
+      tx,
+      existing.branchId,
+      input.customerId ?? existing.customerId,
+      input.header.partyName,
+      input.header.location,
+      subject.id,
+    );
+
     const q = await tx.quotation.update({
       where: { id },
       data: {
         status: input.status ?? existing.status,
-        customerId: input.customerId ?? existing.customerId,
+        customerId,
         assignedToId:
           subject.role === Role.MANAGER
             ? existing.assignedToId

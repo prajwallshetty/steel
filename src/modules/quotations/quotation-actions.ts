@@ -38,6 +38,10 @@ const saveSchema = quotationDraftSchema.extend({
 function revalidateQuotation(id?: string): void {
   revalidatePath("/quotations");
   revalidatePath("/dashboard");
+  revalidatePath("/ledger");
+  revalidatePath("/customers");
+  revalidatePath("/customer-outstanding");
+  revalidatePath("/reports");
   if (id) {
     revalidatePath(`/quotations/${id}`);
     revalidatePath(`/quotations/${id}/print`);

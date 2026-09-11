@@ -36,6 +36,8 @@ const SETTLED: readonly LedgerStatus[] = [
 const INVOICE_STATUSES: readonly QuotationStatus[] = [
   QuotationStatus.APPROVED,
   QuotationStatus.COMPLETED,
+  QuotationStatus.PENDING_APPROVAL,
+  QuotationStatus.DRAFT,
 ];
 
 export interface ReceiptRow {
@@ -426,12 +428,19 @@ export async function getCustomerLedger(
   let priorDebit = 0;
   let priorCredit = 0;
 
+  const customerMatchCond = {
+    OR: [
+      { customerId },
+      { customerId: null, partyName: { equals: customer.name, mode: "insensitive" as const } },
+    ],
+  };
+
   if (filters.from) {
     const priorInvoices = await prisma.quotation.aggregate({
       _sum: { grandTotal: true },
       where: {
         AND: [
-          { customerId },
+          customerMatchCond,
           branchCond,
           { status: { in: [...INVOICE_STATUSES] } },
           { deletedAt: null },
@@ -470,7 +479,7 @@ export async function getCustomerLedger(
   const invoices = await prisma.quotation.findMany({
     where: {
       AND: [
-        { customerId },
+        customerMatchCond,
         branchCond,
         { status: { in: [...INVOICE_STATUSES] } },
         { deletedAt: null },

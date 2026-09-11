@@ -12,6 +12,8 @@ const SETTLED: readonly LedgerStatus[] = [
 const INVOICE_STATUSES: readonly QuotationStatus[] = [
   QuotationStatus.APPROVED,
   QuotationStatus.COMPLETED,
+  QuotationStatus.PENDING_APPROVAL,
+  QuotationStatus.DRAFT,
 ];
 
 export interface CustomerOutstandingSummary {

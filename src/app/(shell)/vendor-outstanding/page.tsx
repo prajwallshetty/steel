@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Role } from "@prisma/client";
-import { Building2, TrendingUp, Wallet, CreditCard, AlertCircle } from "lucide-react";
+import { Building2, TrendingUp, Wallet } from "lucide-react";
 import { requirePermission } from "@/modules/auth/guard";
 import { PERMISSIONS } from "@/modules/permissions/permissions";
 import { listVendorOutstanding } from "@/modules/vendor-outstanding/vendor-outstanding-service";
@@ -62,7 +62,7 @@ export default async function VendorOutstandingPage({ searchParams }: PageProps)
     <div className="mx-auto w-full max-w-7xl space-y-6">
       <PageHeading
         title="Vendor Outstanding"
-        description="Real-time breakdown of vendor purchases, recorded vendor payments, purchase bill details, ageing analysis, and outstanding liabilities."
+        description="Real-time breakdown of vendor purchases, recorded vendor payments, and outstanding liabilities."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <ExportButton href={`/api/reports/export?${exportQuery.toString()}&format=csv`} label="Export CSV" />
@@ -76,7 +76,7 @@ export default async function VendorOutstandingPage({ searchParams }: PageProps)
       />
 
       {/* Summary KPI Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Card className="border-l-4 border-l-primary/70 shadow-xs">
           <CardContent className="p-4 flex items-center justify-between gap-2">
             <div>
@@ -87,51 +87,15 @@ export default async function VendorOutstandingPage({ searchParams }: PageProps)
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-purple-500 bg-gradient-to-br from-card to-purple-500/5 shadow-xs">
-          <CardContent className="p-4 flex items-center justify-between gap-2">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total Payable / Bills</p>
-              <p className="text-2xl font-extrabold text-purple-600 dark:text-purple-400 mt-0.5 tabular-nums">
-                ₹{formatMoney(data.totalPayableSum, grouping)}
-              </p>
-            </div>
-            <CreditCard className="size-5 text-purple-500/60 shrink-0" />
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-emerald-500 bg-gradient-to-br from-card to-emerald-500/5 shadow-xs">
-          <CardContent className="p-4 flex items-center justify-between gap-2">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total Vendor Paid</p>
-              <p className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5 tabular-nums">
-                ₹{formatMoney(data.totalPaidSum, grouping)}
-              </p>
-            </div>
-            <Wallet className="size-5 text-emerald-500/60 shrink-0" />
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-amber-500 bg-gradient-to-br from-card to-amber-500/5 shadow-xs">
-          <CardContent className="p-4 flex items-center justify-between gap-2">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Outstanding Dues</p>
-              <p className="text-2xl font-extrabold text-amber-600 dark:text-amber-400 mt-0.5 tabular-nums">
-                ₹{formatMoney(data.totalOutstandingSum, grouping)}
-              </p>
-            </div>
-            <TrendingUp className="size-5 text-amber-500/60 shrink-0" />
-          </CardContent>
-        </Card>
-
         <Card className="border-l-4 border-l-rose-500 bg-gradient-to-br from-card to-rose-500/5 shadow-xs">
           <CardContent className="p-4 flex items-center justify-between gap-2">
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Overdue Dues</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total Outstanding Dues</p>
               <p className="text-2xl font-extrabold text-rose-600 dark:text-rose-400 mt-0.5 tabular-nums">
-                ₹{formatMoney(data.totalOverdueSum, grouping)}
+                ₹{formatMoney(data.totalOutstandingSum, grouping)}
               </p>
             </div>
-            <AlertCircle className="size-5 text-rose-500/60 shrink-0" />
+            <TrendingUp className="size-5 text-rose-500/60 shrink-0" />
           </CardContent>
         </Card>
       </div>
@@ -144,7 +108,7 @@ export default async function VendorOutstandingPage({ searchParams }: PageProps)
                 key: "search",
                 label: "Search",
                 type: "search",
-                placeholder: "Vendor name, city, phone, GST…",
+                placeholder: "Vendor name, city, phone…",
               },
               ...(isSuper
                 ? [
@@ -160,26 +124,11 @@ export default async function VendorOutstandingPage({ searchParams }: PageProps)
                   ]
                 : []),
               {
-                key: "paymentStatus",
-                label: "Payment Status",
-                type: "select",
-                placeholder: "All Payment Statuses",
-                options: [
-                  { value: "ALL", label: "All Payment Statuses" },
-                  { value: "Pending", label: "Pending" },
-                  { value: "Partially Paid", label: "Partially Paid" },
-                  { value: "Overdue", label: "Overdue" },
-                  { value: "Paid", label: "Fully Paid" },
-                  { value: "Advance / Credit", label: "Advance / Credit" },
-                ],
-              },
-              {
                 key: "sortBy",
                 label: "Sort By",
                 type: "select",
                 options: [
                   { value: "highest_outstanding", label: "Highest Outstanding" },
-                  { value: "overdue", label: "Highest Overdue" },
                   { value: "oldest_outstanding", label: "Oldest Outstanding" },
                   { value: "payable", label: "Highest Payable" },
                   { value: "name", label: "Vendor Name" },

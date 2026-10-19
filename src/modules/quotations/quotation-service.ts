@@ -1,7 +1,7 @@
 import "server-only";
 import { AuditAction, NotificationType, Prisma, QuotationStatus, Role, LedgerDirection, LedgerStatus } from "@prisma/client";
 import { prisma, NOT_DELETED } from "@/lib/database/prisma";
-import type { Quotation } from "@/types/quotation";
+import { canEditQuotationStatus, type Quotation } from "@/types/quotation";
 import { calculateQuotation } from "@/lib/quotation-engine";
 import { getSettings } from "@/modules/settings/settings-service";
 import { recordAudit } from "@/modules/audit/audit-service";
@@ -387,9 +387,13 @@ export async function updateQuotation(
   const existing = await requireQuotation(subject, id);
   assertMutable(subject, existing);
 
-
   if (existing.status === QuotationStatus.CANCELLED) {
     throw new BusinessRuleError("This quotation has been cancelled.");
+  }
+  if (!canEditQuotationStatus(existing.status, subject.role)) {
+    throw new BusinessRuleError(
+      "Only draft or rejected quotations can be edited.",
+    );
   }
 
   await assertCustomerInBranch(input.customerId, existing.branchId);

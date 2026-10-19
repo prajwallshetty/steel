@@ -14,7 +14,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { FilterBar } from "@/components/shared/FilterBar";
 import { PageHeading } from "@/components/layout/PageHeading";
 import { QuotationDeleteButton } from "@/components/quotation/QuotationDeleteButton";
-import { EDITABLE_STATUSES } from "@/types/quotation";
+import { canEditQuotationStatus } from "@/types/quotation";
 
 import { getActiveBranchFilter } from "@/modules/branches/branch-context";
 
@@ -233,7 +233,7 @@ export default async function QuotationsPage({ searchParams }: PageProps) {
                         >
                           View
                         </Button>
-                        {canUpdate && EDITABLE_STATUSES.includes(quotation.status) && (
+                        {canUpdate && canEditQuotationStatus(quotation.status, user.role) && (
                           <Button
                             variant="ghost"
                             size="xs"

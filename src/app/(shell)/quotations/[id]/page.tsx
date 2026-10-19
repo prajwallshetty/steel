@@ -7,7 +7,7 @@ import { PERMISSIONS, hasPermission } from "@/modules/permissions/permissions";
 import { getQuotationWithPaymentDetails } from "@/modules/quotations/quotation-service";
 import { getSettings } from "@/modules/settings/settings-service";
 import { calculateQuotation } from "@/lib/quotation-engine";
-import { EDITABLE_STATUSES } from "@/types/quotation";
+import { canEditQuotationStatus } from "@/types/quotation";
 import { formatTimestamp, formatMoney } from "@/lib/format/number";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,7 +47,7 @@ export default async function QuotationPreviewPage({ params }: PageProps) {
   const settings = await getSettings(quotation.ownership?.branchId);
   const calculated = calculateQuotation(quotation, settings);
 
-  const editable = EDITABLE_STATUSES.includes(quotation.status);
+  const editable = canEditQuotationStatus(quotation.status, user.role);
   const canEdit =
     editable && hasPermission(user, PERMISSIONS.QUOTATION_UPDATE_OWN);
 

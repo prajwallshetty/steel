@@ -26,6 +26,19 @@ export const EDITABLE_STATUSES: readonly QuotationStatus[] = [
   "REJECTED",
 ];
 
+/**
+ * Whether a quotation in `status` may be edited by a user of `role`. Owners
+ * can only touch draft/rejected documents; a super admin may also correct
+ * submitted or approved ones. Cancelled quotations stay closed for everyone.
+ */
+export function canEditQuotationStatus(
+  status: QuotationStatus,
+  role: string,
+): boolean {
+  if (status === "CANCELLED") return false;
+  return role === "SUPER_ADMIN" || EDITABLE_STATUSES.includes(status);
+}
+
 /** States that represent a committed, printable document. */
 export const COMMITTED_STATUSES: readonly QuotationStatus[] = [
   "APPROVED",

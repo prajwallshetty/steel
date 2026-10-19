@@ -9,7 +9,7 @@ import { updateQuotationAction } from "@/modules/quotations/quotation-actions";
 import { listSelectableCustomers } from "@/modules/customers/customer-service";
 import { listSelectableBranches } from "@/modules/branches/branch-service";
 import { listAssignableUsers } from "@/modules/users/user-service";
-import { EDITABLE_STATUSES } from "@/types/quotation";
+import { canEditQuotationStatus } from "@/types/quotation";
 import { PageHeading } from "@/components/layout/PageHeading";
 import { QuotationEditor } from "@/components/quotation/QuotationEditorWrapper";
 
@@ -31,9 +31,10 @@ export default async function EditQuotationPage({ params }: PageProps) {
   const quotation = await getQuotation(user, id);
   if (!quotation) notFound();
 
-  // Approved documents are a record of a commitment. Bouncing here avoids
-  // rendering a form that the service would refuse to save anyway.
-  if (!EDITABLE_STATUSES.includes(quotation.status)) {
+  // Approved documents are a record of a commitment (super admin excepted).
+  // Bouncing here avoids rendering a form that the service would refuse to
+  // save anyway.
+  if (!canEditQuotationStatus(quotation.status, user.role)) {
     redirect(`/quotations/${id}`);
   }
 

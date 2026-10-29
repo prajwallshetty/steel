@@ -3,9 +3,15 @@ import { Role } from "@prisma/client";
 import { Users } from "lucide-react";
 import { requirePermission } from "@/modules/auth/guard";
 import { PERMISSIONS, hasPermission } from "@/modules/permissions/permissions";
-import { listStaff } from "@/modules/staff/staff-service";
+import {
+  listStaff,
+  listStaffCollections,
+  type StaffCollectionsPage,
+} from "@/modules/staff/staff-service";
 import { listSelectableBranches } from "@/modules/branches/branch-service";
+import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 import { FilterBar } from "@/components/shared/FilterBar";
 import { PageHeading } from "@/components/layout/PageHeading";
 import { StaffDialog } from "@/components/staff/StaffDialog";
@@ -34,6 +40,33 @@ export default async function StaffPage({ searchParams }: PageProps) {
     listStaff(user, { search: params.search, branchId: activeBranchId }),
     isSuper ? listSelectableBranches(user) : Promise.resolve([]),
   ]);
+
+  // A failure here must not take down the staff list, but it must not be
+  // swallowed either: the error is shown in place of the table.
+  let collections: StaffCollectionsPage | null = null;
+  let collectionsError: string | null = null;
+  try {
+    collections = await listStaffCollections(user, {
+      search: params.csearch,
+      staffId: params.cstaff,
+      branchId: activeBranchId,
+      paymentMethod: params.cmethod,
+      from: params.cfrom,
+      to: params.cto,
+      page: Number(params.cpage) || 1,
+    });
+  } catch (error) {
+    console.error("Failed to load staff collections", error);
+    collectionsError = "Could not load collections. Please refresh and try again.";
+  }
+
+  const pageHref = (n: number) => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v && k !== "cpage") q.set(k, v);
+    q.set("cpage", String(n));
+    return `/staff?${q.toString()}`;
+  };
+  const inr = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 
   const canCreate = hasPermission(user, PERMISSIONS.STAFF_CREATE);
   const canUpdate = hasPermission(user, PERMISSIONS.STAFF_UPDATE);
@@ -219,6 +252,115 @@ export default async function StaffPage({ searchParams }: PageProps) {
           </div>
         </Card>
       )}
+
+      <Card>
+        <CardContent className="space-y-4 py-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <div>
+              <h2 className="text-base font-semibold">Collections</h2>
+              <p className="text-xs text-muted-foreground">
+                Money received through staff members, newest first.
+              </p>
+            </div>
+            {collections && (
+              <p className="text-sm text-muted-foreground">
+                {collections.total} record{collections.total === 1 ? "" : "s"} · Settled total{" "}
+                <span className="font-semibold text-foreground tabular-nums">{inr(collections.totalAmount)}</span>
+              </p>
+            )}
+          </div>
+          <FilterBar
+            fields={[
+              { key: "csearch", label: "Search", type: "search", placeholder: "Reference, staff, customer…" },
+              {
+                key: "cstaff",
+                label: "Staff",
+                type: "select",
+                options: staffMembers.map((s) => ({ value: s.id, label: s.name })),
+              },
+              {
+                key: "cmethod",
+                label: "Method",
+                type: "select",
+                options: ["CASH", "BANK_TRANSFER", "UPI", "CHEQUE", "NEFT", "RTGS", "IMPS", "CARD"].map(
+                  (m) => ({ value: m, label: m.replace(/_/g, " ") }),
+                ),
+              },
+              { key: "cfrom", label: "From", type: "date" },
+              { key: "cto", label: "To", type: "date" },
+            ]}
+          />
+
+          {collectionsError ? (
+            <p role="alert" className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">
+              {collectionsError}
+            </p>
+          ) : !collections || collections.rows.length === 0 ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">
+              No collections found for the current filters.
+            </p>
+          ) : (
+            <>
+              <div className="overflow-x-auto rounded-md border">
+                <table className="w-full min-w-[1100px] text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
+                      <th className="px-3 py-2 text-left font-semibold">Reference</th>
+                      <th className="px-3 py-2 text-left font-semibold">Date</th>
+                      <th className="px-3 py-2 text-left font-semibold">Staff</th>
+                      <th className="px-3 py-2 text-left font-semibold">Customer</th>
+                      <th className="px-3 py-2 text-right font-semibold">Amount</th>
+                      <th className="px-3 py-2 text-left font-semibold">Method</th>
+                      <th className="px-3 py-2 text-left font-semibold">Txn / Ref No</th>
+                      <th className="px-3 py-2 text-left font-semibold">Invoice</th>
+                      <th className="px-3 py-2 text-left font-semibold">Notes</th>
+                      <th className="px-3 py-2 text-left font-semibold">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {collections.rows.map((c) => (
+                      <tr key={c.id} className="border-b last:border-0 hover:bg-muted/40">
+                        <td className="px-3 py-2 font-medium">{c.reference}</td>
+                        <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">
+                          {c.entryDate}
+                          <span className="block text-xs">
+                            {new Date(c.createdAt).toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2">{c.staffName}</td>
+                        <td className="px-3 py-2 text-muted-foreground">{c.customerName ?? "—"}</td>
+                        <td className="px-3 py-2 text-right font-semibold tabular-nums">{inr(c.amount)}</td>
+                        <td className="px-3 py-2">{c.paymentMethod.replace(/_/g, " ")}</td>
+                        <td className="px-3 py-2 text-muted-foreground">{c.referenceNo ?? "—"}</td>
+                        <td className="px-3 py-2 text-muted-foreground">{c.invoiceReference ?? "—"}</td>
+                        <td className="max-w-[220px] truncate px-3 py-2 text-muted-foreground" title={[c.particular, c.note].filter(Boolean).join(" — ")}>
+                          {[c.particular, c.note].filter(Boolean).join(" — ")}
+                        </td>
+                        <td className="px-3 py-2"><StatusBadge status={c.status} kind="ledger" /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {collections.pageCount > 1 && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    Page {collections.page} of {collections.pageCount}
+                  </span>
+                  <div className="flex gap-2">
+                    {collections.page > 1 && (
+                      <Link className="rounded-md border px-3 py-1 hover:bg-muted" href={pageHref(collections.page - 1)}>Previous</Link>
+                    )}
+                    {collections.page < collections.pageCount && (
+                      <Link className="rounded-md border px-3 py-1 hover:bg-muted" href={pageHref(collections.page + 1)}>Next</Link>
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

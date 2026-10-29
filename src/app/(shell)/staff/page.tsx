@@ -11,6 +11,7 @@ import {
 import { listSelectableBranches } from "@/modules/branches/branch-service";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
+import { LedgerEntryEditDialog } from "@/components/ledger/LedgerEntryEditDialog";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { FilterBar } from "@/components/shared/FilterBar";
 import { PageHeading } from "@/components/layout/PageHeading";
@@ -71,6 +72,9 @@ export default async function StaffPage({ searchParams }: PageProps) {
   const canCreate = hasPermission(user, PERMISSIONS.STAFF_CREATE);
   const canUpdate = hasPermission(user, PERMISSIONS.STAFF_UPDATE);
   const canDelete = hasPermission(user, PERMISSIONS.STAFF_DELETE);
+  const canEditEntries =
+    hasPermission(user, PERMISSIONS.LEDGER_UPDATE_ANY) ||
+    hasPermission(user, PERMISSIONS.LEDGER_UPDATE_OWN);
 
   const branchOptions = branches.map((branch) => ({
     id: branch.id,
@@ -315,6 +319,7 @@ export default async function StaffPage({ searchParams }: PageProps) {
                       <th className="px-3 py-2 text-left font-semibold">Invoice</th>
                       <th className="px-3 py-2 text-left font-semibold">Notes</th>
                       <th className="px-3 py-2 text-left font-semibold">Status</th>
+                      {canEditEntries && <th className="px-3 py-2"><span className="sr-only">Actions</span></th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -337,6 +342,25 @@ export default async function StaffPage({ searchParams }: PageProps) {
                           {[c.particular, c.note].filter(Boolean).join(" — ")}
                         </td>
                         <td className="px-3 py-2"><StatusBadge status={c.status} kind="ledger" /></td>
+                        {canEditEntries && (
+                          <td className="px-3 py-2 text-right">
+                            <LedgerEntryEditDialog
+                              key={`${c.id}:${c.amount}:${c.entryDate}:${c.particular}:${c.referenceNo}:${c.note}`}
+                              entry={{
+                                id: c.id,
+                                reference: c.reference,
+                                partyName: c.staffName,
+                                direction: "CREDIT",
+                                entryDate: c.entryDate,
+                                amount: c.amount,
+                                paymentMethod: c.paymentMethod,
+                                referenceNo: c.referenceNo,
+                                particular: c.particular,
+                                note: c.note,
+                              }}
+                            />
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>

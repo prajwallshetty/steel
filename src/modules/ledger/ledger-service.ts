@@ -23,7 +23,11 @@ import {
   resolveWriteBranch,
   type ScopeSubject,
 } from "@/modules/permissions/scope";
-import type { LedgerEntryInput, LedgerFilterInput } from "./ledger-schema";
+import type {
+  LedgerEntryDetailsInput,
+  LedgerEntryInput,
+  LedgerFilterInput,
+} from "./ledger-schema";
 
 /**
  * Cash ledger.
@@ -378,6 +382,107 @@ export async function updateLedgerEntry(
       amount: input.amount,
       status,
       particular: data.particular,
+    },
+  });
+
+  return { id };
+}
+
+/**
+ * Correct the safe fields of any ledger entry (receipt, payment, customer or
+ * vendor voucher) in place. The row keeps its id and reference; customer,
+ * vendor, invoice, direction, branch and status are untouched, so outstanding
+ * figures — which are computed live from this table — stay consistent.
+ *
+ * The write is guarded by the `updatedAt` read at the start, so two people
+ * saving the same entry cannot silently overwrite each other. A staff-linked
+ * entry also moved the staff balance when it was recorded, so the balance is
+ * adjusted by the difference in the same transaction.
+ */
+export async function updateLedgerEntryDetails(
+  subject: ScopeSubject,
+  id: string,
+  input: LedgerEntryDetailsInput,
+): Promise<{ id: string }> {
+  const existing = await requireEntry(subject, id);
+
+  const mayEdit = canMutateRecord(ledgerScope(subject), {
+    branchId: existing.branchId,
+    ownerIds: [existing.createdById],
+  });
+  if (!mayEdit) throw new ForbiddenError("You can only edit your own entries.");
+
+  if (
+    existing.status === LedgerStatus.CANCELLED ||
+    existing.status === LedgerStatus.RETURNED
+  ) {
+    throw new BusinessRuleError(
+      `A ${existing.status.toLowerCase()} entry cannot be edited.`,
+    );
+  }
+  if (
+    existing.status === LedgerStatus.CLEARED &&
+    !hasPermission(subject, PERMISSIONS.LEDGER_APPROVE)
+  ) {
+    throw new BusinessRuleError(
+      "This entry is cleared and reconciled. Ask an administrator to amend it.",
+    );
+  }
+
+  const data = {
+    entryDate: new Date(input.entryDate),
+    amount: new Prisma.Decimal(input.amount),
+    paymentMethod: input.paymentMethod,
+    referenceNo: input.referenceNo?.trim() || null,
+    particular: input.particular.trim(),
+    note: input.note?.trim() || null,
+  };
+
+  await prisma.$transaction(async (tx) => {
+    const { count } = await tx.cashLedgerEntry.updateMany({
+      where: { id, updatedAt: existing.updatedAt, deletedAt: null },
+      data: { ...data, updatedById: subject.id },
+    });
+    if (count !== 1) {
+      throw new BusinessRuleError(
+        "This entry was changed by someone else. Reload and try again.",
+      );
+    }
+
+    if (existing.staffId) {
+      const sign = existing.direction === LedgerDirection.CREDIT ? 1 : -1;
+      const delta = data.amount.minus(existing.amount).times(sign);
+      if (!delta.isZero()) {
+        await tx.staff.update({
+          where: { id: existing.staffId },
+          data: { balance: { increment: delta }, updatedById: subject.id },
+        });
+      }
+    }
+  });
+
+  await recordAudit({
+    action: AuditAction.UPDATE,
+    entity: "CashLedgerEntry",
+    entityId: id,
+    summary: `Edited ledger entry ${existing.reference}`,
+    userId: subject.id,
+    branchId: existing.branchId,
+    oldValue: {
+      entryDate: existing.entryDate.toISOString().slice(0, 10),
+      amount: Number(existing.amount),
+      paymentMethod: existing.paymentMethod,
+      referenceNo: existing.referenceNo,
+      particular: existing.particular,
+      note: existing.note,
+    },
+    newValue: {
+      entryDate: input.entryDate,
+      amount: input.amount,
+      paymentMethod: input.paymentMethod,
+      referenceNo: data.referenceNo,
+      particular: data.particular,
+      note: data.note,
     },
   });
 

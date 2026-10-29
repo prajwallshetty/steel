@@ -71,6 +71,33 @@ export interface ReceiptsPage {
   readonly count: number;
 }
 
+/** The correctable fields of a ledger entry, for the ledger-statement Edit action. */
+function toEditableEntry(entry: {
+  id: string;
+  reference: string;
+  partyName: string | null;
+  direction: LedgerDirection;
+  entryDate: Date;
+  amount: Prisma.Decimal;
+  paymentMethod: string;
+  referenceNo: string | null;
+  particular: string;
+  note: string | null;
+}) {
+  return {
+    id: entry.id,
+    reference: entry.reference,
+    partyName: entry.partyName,
+    direction: entry.direction,
+    entryDate: entry.entryDate.toISOString().slice(0, 10),
+    amount: Number(entry.amount),
+    paymentMethod: entry.paymentMethod,
+    referenceNo: entry.referenceNo,
+    particular: entry.particular,
+    note: entry.note,
+  };
+}
+
 function buildReceiptsWhere(
   subject: ScopeSubject,
   filters: {
@@ -528,7 +555,8 @@ export async function getCustomerLedger(
         debit: 0,
         credit: Number(entry.amount), // Customer paid us
         type: "RECEIPT",
-      });
+      entry: toEditableEntry(entry),
+    });
     } else {
       ledgerItems.push({
         id: entry.id,
@@ -538,7 +566,8 @@ export async function getCustomerLedger(
         debit: Number(entry.amount), // Customer refunded / payment out
         credit: 0,
         type: "PAYMENT",
-      });
+      entry: toEditableEntry(entry),
+    });
     }
   });
 
@@ -736,6 +765,13 @@ export async function getVendorLedger(
       debit: 0,
       credit: Number(bill.amount),
       type: "BILL",
+      bill: {
+        id: bill.id,
+        billNumber: bill.billNumber,
+        vendorName: bill.vendorName,
+        billDate: bill.billDate.toISOString().slice(0, 10),
+        amount: Number(bill.amount),
+      },
     });
   });
 
@@ -749,7 +785,8 @@ export async function getVendorLedger(
         debit: Number(entry.amount),
         credit: 0,
         type: "PAYMENT",
-      });
+      entry: toEditableEntry(entry),
+    });
     } else {
       ledgerItems.push({
         id: entry.id,
@@ -759,7 +796,8 @@ export async function getVendorLedger(
         debit: 0,
         credit: Number(entry.amount),
         type: "RECEIPT",
-      });
+      entry: toEditableEntry(entry),
+    });
     }
   });
 
@@ -936,6 +974,13 @@ export async function getConsolidatedLedger(
       debit: 0,
       credit: Number(bill.amount),
       type: "BILL",
+      bill: {
+        id: bill.id,
+        billNumber: bill.billNumber,
+        vendorName: bill.vendorName,
+        billDate: bill.billDate.toISOString().slice(0, 10),
+        amount: Number(bill.amount),
+      },
     });
   });
 
@@ -951,7 +996,8 @@ export async function getConsolidatedLedger(
         debit: 0,
         credit: Number(entry.amount),
         type: "RECEIPT",
-      });
+      entry: toEditableEntry(entry),
+    });
     } else {
       ledgerItems.push({
         id: entry.id,
@@ -962,7 +1008,8 @@ export async function getConsolidatedLedger(
         debit: Number(entry.amount),
         credit: 0,
         type: "PAYMENT",
-      });
+      entry: toEditableEntry(entry),
+    });
     }
   });
 

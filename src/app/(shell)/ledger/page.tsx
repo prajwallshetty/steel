@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Role } from "@prisma/client";
-import { BookOpen, Users, Printer, Building } from "lucide-react";
+import { BookOpen, Users, Printer, Building, Pencil } from "lucide-react";
 import { requireAnyPermission } from "@/modules/auth/guard";
-import { PERMISSIONS } from "@/modules/permissions/permissions";
+import { PERMISSIONS, hasPermission } from "@/modules/permissions/permissions";
 import { listSelectableCustomers } from "@/modules/customers/customer-service";
 import { listSelectableVendors } from "@/modules/vendors/vendor-service";
 import { getCustomerLedger, getVendorLedger, getConsolidatedLedger } from "@/modules/receipt-payment/receipt-service";
@@ -13,6 +13,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { PageHeading } from "@/components/layout/PageHeading";
 import { LedgerFilter } from "./LedgerFilter";
 import { Button } from "@/components/ui/button";
+import { VendorBillEditDialog } from "@/components/receipt-payment/VendorBillEditDialog";
+import { LedgerEntryEditDialog } from "@/components/ledger/LedgerEntryEditDialog";
 
 import { ExportButton } from "@/components/reports/ExportButton";
 
@@ -42,6 +44,12 @@ export default async function CustomerLedgerPage({ searchParams }: PageProps) {
     listSelectableVendors(user, activeBranchId),
     getSettings(user.branchId),
   ]);
+
+  const canEditEntries =
+    hasPermission(user, PERMISSIONS.LEDGER_UPDATE_ANY) ||
+    hasPermission(user, PERMISSIONS.LEDGER_UPDATE_OWN);
+  const canEditInvoices = hasPermission(user, PERMISSIONS.QUOTATION_UPDATE_OWN);
+  const canEdit = canEditEntries || canEditInvoices;
 
   const grouping = settings.display.numberGrouping;
   const money = (value: number) => formatMoney(value, grouping);
@@ -214,6 +222,9 @@ export default async function CustomerLedgerPage({ searchParams }: PageProps) {
                       <th scope="col" className="px-4 py-3 text-right font-bold">Debit (+)</th>
                       <th scope="col" className="px-4 py-3 text-right font-bold">Credit (-)</th>
                       <th scope="col" className="px-4 py-3 text-right font-bold">Balance</th>
+                      {canEdit && (
+                        <th scope="col" className="px-4 py-3 text-right font-bold"><span className="sr-only">Actions</span></th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
@@ -241,6 +252,7 @@ export default async function CustomerLedgerPage({ searchParams }: PageProps) {
                       <td className="px-4 py-3 text-right font-semibold tabular-nums text-foreground">
                         {money(ledger.openingBalance)}
                       </td>
+                      {canEdit && <td />}
                     </tr>
 
                     {ledger.rows.map((row: any) => (
@@ -284,6 +296,31 @@ export default async function CustomerLedgerPage({ searchParams }: PageProps) {
                         <td className="px-4 py-3 text-right font-bold tabular-nums text-foreground">
                           {money(row.balance)}
                         </td>
+                        {canEdit && (
+                          <td className="px-4 py-3 text-right">
+                            {row.entry && canEditEntries ? (
+                              <LedgerEntryEditDialog
+                                key={`${row.entry.id}:${row.entry.amount}:${row.entry.entryDate}:${row.entry.particular}`}
+                                entry={row.entry}
+                              />
+                            ) : row.bill && canEditEntries ? (
+                              <VendorBillEditDialog
+                                key={`${row.bill.id}:${row.bill.amount}:${row.bill.billDate}:${row.bill.billNumber}`}
+                                bill={row.bill}
+                              />
+                            ) : row.type === "INVOICE" && canEditInvoices ? (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                title="Edit invoice"
+                                aria-label={`Edit ${row.voucherNo}`}
+                                render={<Link href={`/quotations/${row.id}/edit`} />}
+                              >
+                                <Pencil className="size-4" />
+                              </Button>
+                            ) : null}
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>

@@ -71,6 +71,36 @@ export const ledgerEntrySchema = z
 
 export type LedgerEntryInput = z.infer<typeof ledgerEntrySchema>;
 
+/**
+ * Fields of an existing entry that may be corrected in place. Direction,
+ * party, customer, invoice, branch, status and the staff link are deliberately
+ * absent: changing them re-points the entry at different books, which is a
+ * delete-and-recreate (or status workflow), not an edit.
+ */
+export const ledgerEntryDetailsSchema = z
+  .object({
+    entryDate: ledgerEntrySchema.innerType().shape.entryDate,
+    amount: ledgerEntrySchema.innerType().shape.amount,
+    paymentMethod: z.enum(PAYMENT_METHODS),
+    referenceNo: z.string().trim().max(80).optional().or(z.literal("")),
+    particular: z.string().trim().min(2, "Describe what this entry is for").max(200),
+    note: z.string().trim().max(500).optional().or(z.literal("")),
+  })
+  .superRefine((value, ctx) => {
+    if (
+      REFERENCE_REQUIRED.includes(value.paymentMethod) &&
+      !value.referenceNo?.trim()
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["referenceNo"],
+        message: `A reference number is required for ${value.paymentMethod.replace(/_/g, " ").toLowerCase()} payments`,
+      });
+    }
+  });
+
+export type LedgerEntryDetailsInput = z.infer<typeof ledgerEntryDetailsSchema>;
+
 export const ledgerFilterSchema = z.object({
   search: z.string().trim().optional(),
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),

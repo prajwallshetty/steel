@@ -25,7 +25,11 @@ import {
   branchWhere,
   type ScopeSubject,
 } from "@/modules/permissions/scope";
-import type { PaymentInput, VendorBillInput } from "./receipt-payment-schema";
+import type {
+  PaymentInput,
+  VendorBillInput,
+  VendorBillUpdateInput,
+} from "./receipt-payment-schema";
 
 const SETTLED: readonly LedgerStatus[] = [
   LedgerStatus.RECEIVED,
@@ -435,6 +439,102 @@ export async function createVendorBill(
   });
 
   return { id: bill.id };
+}
+
+/**
+ * Correct a purchase bill in place: number, date and amount. The vendor and
+ * branch are fixed (payments are matched to the bill by vendor), and the amount
+ * cannot drop below what has already been paid against the bill. Outstanding
+ * figures are computed live from the bill, so no recalculation is stored.
+ */
+export async function updateVendorBill(
+  subject: ScopeSubject,
+  id: string,
+  input: VendorBillUpdateInput,
+): Promise<{ id: string }> {
+  const existing = await prisma.vendorBill.findFirst({
+    where: { AND: [{ id }, ledgerWhere(ledgerScope(subject)), NOT_DELETED] },
+  });
+  if (!existing) throw new RecordNotFoundError("Vendor bill");
+
+  const mayEdit = canMutateRecord(ledgerScope(subject), {
+    branchId: existing.branchId,
+    ownerIds: [existing.createdById],
+  });
+  if (!mayEdit) throw new ForbiddenError("You can only edit your own bills.");
+
+  const paid = await prisma.cashLedgerEntry.aggregate({
+    _sum: { amount: true },
+    where: {
+      vendorBillId: id,
+      direction: LedgerDirection.DEBIT,
+      status: { in: [...SETTLED] },
+      deletedAt: null,
+    },
+  });
+  const paidAmount = Number(paid._sum?.amount ?? 0);
+  if (input.amount < paidAmount) {
+    throw new BusinessRuleError(
+      `Payments of ₹${paidAmount} are already recorded against this bill; the amount cannot be lower.`,
+    );
+  }
+
+  const billNumber = input.billNumber.trim();
+  const data = {
+    billNumber,
+    amount: new Prisma.Decimal(input.amount),
+    billDate: new Date(input.billDate),
+  };
+
+  if (billNumber !== existing.billNumber) {
+    const clash = await prisma.vendorBill.findFirst({
+      where: {
+        branchId: existing.branchId,
+        vendorName: existing.vendorName,
+        billNumber,
+        id: { not: id },
+      },
+      select: { id: true },
+    });
+    if (clash) {
+      throw new BusinessRuleError(
+        `Bill ${billNumber} already exists for ${existing.vendorName}.`,
+      );
+    }
+  }
+
+  // Guarded by the version read above so concurrent saves cannot overwrite
+  // each other silently.
+  const { count } = await prisma.vendorBill.updateMany({
+    where: { id, updatedAt: existing.updatedAt, deletedAt: null },
+    data: { ...data, updatedById: subject.id },
+  });
+  if (count !== 1) {
+    throw new BusinessRuleError(
+      "This bill was changed by someone else. Reload and try again.",
+    );
+  }
+
+  await recordAudit({
+    action: AuditAction.UPDATE,
+    entity: "VendorBill",
+    entityId: id,
+    summary: `Edited vendor bill ${existing.billNumber} for ${existing.vendorName}`,
+    userId: subject.id,
+    branchId: existing.branchId,
+    oldValue: {
+      billNumber: existing.billNumber,
+      amount: Number(existing.amount),
+      billDate: existing.billDate.toISOString().slice(0, 10),
+    },
+    newValue: {
+      billNumber,
+      amount: input.amount,
+      billDate: input.billDate,
+    },
+  });
+
+  return { id };
 }
 
 // Ledgers Calculations

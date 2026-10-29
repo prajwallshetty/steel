@@ -1,5 +1,11 @@
 import "server-only";
-import { AuditAction, LedgerDirection, LedgerStatus, Prisma } from "@prisma/client";
+import {
+  AuditAction,
+  LedgerDirection,
+  LedgerStatus,
+  PaymentMethod,
+  Prisma,
+} from "@prisma/client";
 import { prisma, NOT_DELETED } from "@/lib/database/prisma";
 import { recordAudit, diffFields } from "@/modules/audit/audit-service";
 import { formatReference, nextSequenceValue } from "@/modules/shared/sequence";
@@ -9,6 +15,8 @@ import {
 } from "@/modules/shared/action-result";
 import {
   branchWhere,
+  ledgerScope,
+  ledgerWhere,
   resolveWriteBranch,
   type ScopeSubject,
 } from "@/modules/permissions/scope";
@@ -67,6 +75,142 @@ export async function listStaff(
     branchName: staff.branch.name,
     createdAt: staff.createdAt.toISOString(),
   }));
+}
+
+export interface StaffCollectionRow {
+  readonly id: string;
+  readonly reference: string;
+  readonly staffId: string;
+  readonly staffName: string;
+  readonly customerName: string | null;
+  readonly entryDate: string;
+  readonly createdAt: string;
+  readonly amount: number;
+  readonly paymentMethod: string;
+  readonly referenceNo: string | null;
+  readonly invoiceReference: string | null;
+  readonly particular: string;
+  readonly note: string | null;
+  readonly status: LedgerStatus;
+  readonly branchName: string;
+}
+
+export interface StaffCollectionsPage {
+  readonly rows: readonly StaffCollectionRow[];
+  readonly total: number;
+  readonly totalAmount: number;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly pageCount: number;
+}
+
+export interface StaffCollectionFilters {
+  readonly search?: string;
+  readonly staffId?: string;
+  readonly branchId?: string;
+  readonly paymentMethod?: string;
+  readonly from?: string;
+  readonly to?: string;
+  readonly page?: number;
+}
+
+const COLLECTIONS_PAGE_SIZE = 25;
+
+/**
+ * Money received through a staff member: ledger entries carrying a `staffId`
+ * with direction CREDIT. Read-only: nothing here writes to the ledger or to
+ * any balance. Soft-deleted and cancelled/returned entries are excluded from
+ * the amount total but listed (with their status) so nothing silently vanishes.
+ */
+export async function listStaffCollections(
+  subject: ScopeSubject,
+  filters: StaffCollectionFilters = {},
+): Promise<StaffCollectionsPage> {
+  const term = filters.search?.trim();
+  const dateOk = (v?: string) => (v && !Number.isNaN(Date.parse(v)) ? new Date(v) : null);
+  const from = dateOk(filters.from);
+  const to = dateOk(filters.to);
+
+  const where: Prisma.CashLedgerEntryWhereInput = {
+    AND: [
+      ledgerWhere(ledgerScope(subject)),
+      NOT_DELETED,
+      { direction: LedgerDirection.CREDIT },
+      filters.staffId ? { staffId: filters.staffId } : { staffId: { not: null } },
+      filters.branchId ? { branchId: filters.branchId } : {},
+      filters.paymentMethod
+        ? { paymentMethod: filters.paymentMethod as PaymentMethod }
+        : {},
+      from ? { entryDate: { gte: from } } : {},
+      to ? { entryDate: { lte: to } } : {},
+      term
+        ? {
+            OR: [
+              { reference: { contains: term, mode: "insensitive" } },
+              { referenceNo: { contains: term, mode: "insensitive" } },
+              { particular: { contains: term, mode: "insensitive" } },
+              { note: { contains: term, mode: "insensitive" } },
+              { staff: { name: { contains: term, mode: "insensitive" } } },
+              { customer: { name: { contains: term, mode: "insensitive" } } },
+            ],
+          }
+        : {},
+    ],
+  };
+
+  const [total, sum] = await Promise.all([
+    prisma.cashLedgerEntry.count({ where }),
+    prisma.cashLedgerEntry.aggregate({
+      _sum: { amount: true },
+      where: {
+        AND: [
+          where,
+          { status: { in: [LedgerStatus.RECEIVED, LedgerStatus.CLEARED] } },
+        ],
+      },
+    }),
+  ]);
+
+  const pageCount = Math.max(1, Math.ceil(total / COLLECTIONS_PAGE_SIZE));
+  const page = Math.min(Math.max(1, Math.floor(filters.page ?? 1) || 1), pageCount);
+
+  const entries = await prisma.cashLedgerEntry.findMany({
+    where,
+    orderBy: [{ entryDate: "desc" }, { createdAt: "desc" }],
+    skip: (page - 1) * COLLECTIONS_PAGE_SIZE,
+    take: COLLECTIONS_PAGE_SIZE,
+    include: {
+      staff: { select: { id: true, name: true } },
+      customer: { select: { name: true } },
+      quotation: { select: { reference: true } },
+      branch: { select: { name: true } },
+    },
+  });
+
+  return {
+    rows: entries.map((e) => ({
+      id: e.id,
+      reference: e.reference,
+      staffId: e.staff?.id ?? "",
+      staffName: e.staff?.name ?? e.partyName ?? "—",
+      customerName: e.customer?.name ?? null,
+      entryDate: e.entryDate.toISOString().slice(0, 10),
+      createdAt: e.createdAt.toISOString(),
+      amount: Number(e.amount),
+      paymentMethod: e.paymentMethod,
+      referenceNo: e.referenceNo,
+      invoiceReference: e.quotation?.reference ?? null,
+      particular: e.particular,
+      note: e.note,
+      status: e.status,
+      branchName: e.branch.name,
+    })),
+    total,
+    totalAmount: Number(sum._sum?.amount ?? 0),
+    page,
+    pageSize: COLLECTIONS_PAGE_SIZE,
+    pageCount,
+  };
 }
 
 export async function getStaffCashInHand(

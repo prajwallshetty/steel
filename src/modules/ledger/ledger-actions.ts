@@ -10,12 +10,13 @@ import {
   runAction,
   type ActionResult,
 } from "@/modules/shared/action-result";
-import { ledgerEntrySchema } from "./ledger-schema";
+import { ledgerEntryDetailsSchema, ledgerEntrySchema } from "./ledger-schema";
 import {
   createLedgerEntry,
   deleteLedgerEntry,
   setLedgerStatus,
   updateLedgerEntry,
+  updateLedgerEntryDetails,
 } from "./ledger-service";
 
 function revalidateLedger(): void {
@@ -47,6 +48,35 @@ export async function updateLedgerEntryAction(
       ledgerEntrySchema.parse(input),
     );
     revalidateLedger();
+    return actionOk(result);
+  });
+}
+
+export async function updateLedgerEntryDetailsAction(
+  id: string,
+  input: unknown,
+): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const user = await authorizeAction(PERMISSIONS.LEDGER_UPDATE_OWN);
+    const result = await updateLedgerEntryDetails(
+      user,
+      id,
+      ledgerEntryDetailsSchema.parse(input),
+    );
+    revalidateLedger();
+    for (const path of [
+      "/receipts",
+      "/payments",
+      "/customer-payments",
+      "/vendor-payments",
+      "/customer-outstanding",
+      "/vendor-outstanding",
+      "/staff",
+      "/customers",
+      "/vendors",
+    ]) {
+      revalidatePath(path);
+    }
     return actionOk(result);
   });
 }

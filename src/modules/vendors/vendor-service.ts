@@ -219,9 +219,25 @@ export async function updateVendor(
     balance: input.balance ?? 0,
   };
 
-  await prisma.vendor.update({
-    where: { id },
-    data: { ...data, updatedById: subject.id },
+  await prisma.$transaction(async (tx) => {
+    await tx.vendor.update({
+      where: { id },
+      data: { ...data, updatedById: subject.id },
+    });
+
+    // Bills are matched to their vendor by name, and ledger vouchers carry a
+    // name snapshot. Carry a rename across so the vendor ledger and outstanding
+    // keep finding the vendor's existing bills and payments.
+    if (data.name !== existing.name) {
+      await tx.vendorBill.updateMany({
+        where: { vendorName: existing.name, branchId: existing.branchId },
+        data: { vendorName: data.name },
+      });
+      await tx.cashLedgerEntry.updateMany({
+        where: { vendorId: id },
+        data: { partyName: data.name },
+      });
+    }
   });
 
   const changes = diffFields(existing as unknown as Record<string, unknown>, data);

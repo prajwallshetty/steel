@@ -97,6 +97,15 @@ export const vendorBillSchema = z.object({
 
 export type VendorBillInput = z.infer<typeof vendorBillSchema>;
 
+/** Editable bill fields. The vendor and branch a bill belongs to are fixed. */
+export const vendorBillUpdateSchema = vendorBillSchema.pick({
+  billNumber: true,
+  amount: true,
+  billDate: true,
+});
+
+export type VendorBillUpdateInput = z.infer<typeof vendorBillUpdateSchema>;
+
 export const partnerPaymentSchema = z
   .object({
     entryDate: z

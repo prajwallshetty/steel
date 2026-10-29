@@ -14,11 +14,13 @@ import {
   paymentInputSchema,
   receiptInputSchema,
   vendorBillSchema,
+  vendorBillUpdateSchema,
 } from "./receipt-payment-schema";
 import {
   createPayment,
   deletePayment,
   createVendorBill,
+  updateVendorBill,
 } from "./payment-service";
 import {
   createReceipt,
@@ -82,6 +84,22 @@ export async function createVendorBillAction(
   return runAction(async () => {
     const user = await authorizeAction(PERMISSIONS.LEDGER_CREATE);
     const result = await createVendorBill(user, vendorBillSchema.parse(input));
+    revalidate();
+    return actionOk(result);
+  });
+}
+
+export async function updateVendorBillAction(
+  id: string,
+  input: unknown,
+): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const user = await authorizeAction(PERMISSIONS.LEDGER_UPDATE_OWN);
+    const result = await updateVendorBill(
+      user,
+      id,
+      vendorBillUpdateSchema.parse(input),
+    );
     revalidate();
     return actionOk(result);
   });

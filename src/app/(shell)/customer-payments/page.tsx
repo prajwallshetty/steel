@@ -12,6 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { FilterBar } from "@/components/shared/FilterBar";
 import { PageHeading } from "@/components/layout/PageHeading";
 import { CustomerPaymentDialog } from "@/components/receipt-payment/CustomerPaymentDialog";
+import { LedgerEntryEditDialog } from "@/components/ledger/LedgerEntryEditDialog";
 import { PartnerPaymentRowActions } from "@/components/receipt-payment/PartnerPaymentRowActions";
 
 import { ExportButton } from "@/components/reports/ExportButton";
@@ -38,6 +39,9 @@ export default async function CustomerPaymentsPage({ searchParams }: PageProps) 
   const activeBranchId = await getActiveBranchFilter(user, params.branchId);
   const isSuper = user.role === Role.SUPER_ADMIN;
   const canApprove = hasPermission(user, PERMISSIONS.LEDGER_APPROVE);
+  const canEdit =
+    hasPermission(user, PERMISSIONS.LEDGER_UPDATE_ANY) ||
+    hasPermission(user, PERMISSIONS.LEDGER_UPDATE_OWN);
 
   const [
     page,
@@ -243,6 +247,25 @@ export default async function CustomerPaymentsPage({ searchParams }: PageProps) 
                         reference={row.reference}
                         direction={row.direction}
                         canDelete={hasPermission(user, PERMISSIONS.LEDGER_DELETE)}
+                        editTrigger={
+                          canEdit ? (
+                            <LedgerEntryEditDialog
+                              key={`${row.id}:${row.amount}:${row.entryDate}:${row.particular}:${row.referenceNo}:${row.note}`}
+                              entry={{
+                                id: row.id,
+                                reference: row.reference,
+                                partyName: row.customerName ?? row.partyName,
+                                direction: row.direction,
+                                entryDate: row.entryDate,
+                                amount: row.amount,
+                                paymentMethod: row.paymentMethod,
+                                referenceNo: row.referenceNo,
+                                particular: row.particular,
+                                note: row.note,
+                              }}
+                            />
+                          ) : undefined
+                        }
                       />
                     </td>
                   </tr>

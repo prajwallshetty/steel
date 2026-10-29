@@ -242,9 +242,21 @@ export async function updateCustomer(
     currentDues: input.currentDues ?? 0,
   };
 
-  await prisma.customer.update({
-    where: { id },
-    data: { ...data, updatedById: subject.id },
+  await prisma.$transaction(async (tx) => {
+    await tx.customer.update({
+      where: { id },
+      data: { ...data, updatedById: subject.id },
+    });
+
+    // Ledger vouchers carry a party-name snapshot that the consolidated ledger
+    // displays; keep it in step with a rename. Quotations deliberately keep
+    // the name they were issued with.
+    if (data.name !== existing.name) {
+      await tx.cashLedgerEntry.updateMany({
+        where: { customerId: id },
+        data: { partyName: data.name },
+      });
+    }
   });
 
   const changes = diffFields(existing as unknown as Record<string, unknown>, data);

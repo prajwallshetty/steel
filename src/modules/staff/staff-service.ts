@@ -363,9 +363,18 @@ export async function updateStaff(
     balance: input.balance ?? 0,
   };
 
-  await prisma.staff.update({
-    where: { id },
-    data: { ...data, updatedById: subject.id },
+  await prisma.$transaction(async (tx) => {
+    await tx.staff.update({
+      where: { id },
+      data: { ...data, updatedById: subject.id },
+    });
+
+    if (data.name !== existing.name) {
+      await tx.cashLedgerEntry.updateMany({
+        where: { staffId: id },
+        data: { partyName: data.name },
+      });
+    }
   });
 
   const changes = diffFields(existing as unknown as Record<string, unknown>, data);
